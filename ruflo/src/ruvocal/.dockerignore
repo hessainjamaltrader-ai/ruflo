@@ -10,8 +10,8 @@ node_modules/
 !.env
 .env.local
 db
-# Anchored to repo root: ignore the top-level models/ symlink/dir only.
-# WITHOUT the leading slash this would also drop src/routes/api/v2/models/,
-# src/routes/models/, and any other models/ subdir — which silently broke
-# the production build (route 404s on /api/v2/models, /favicon, /).
-/models/**
+# NOTE: previously had `models/**` here to ignore a top-level placeholder
+# directory. Even when anchored (`/models/**`), Docker's pattern matcher
+# was eliding nested src/routes/api/v2/models/ and src/routes/models/
+# from the build context, producing prod images missing those routes.
+# The placeholder dir is small (single .txt) — letting it through is fine.
