@@ -37,7 +37,7 @@ import { StateAssessmentCard } from "@/components/StateAssessmentCard";
 import { GOAPConfigDisplay } from "@/components/GOAPConfigDisplay";
 import { GOAPPlanner, parseGoal, type Step, type DataItem } from "@/lib/goapPlanner";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/integrations/functions/client";
 import { RVF_ENABLED } from "@/lib/featureFlags";
 import { getWidgetConfig, saveWidgetConfig } from "@/integrations/rvf/widgetConfigRepo";
 import { getCurrentGoal, saveCurrentGoal } from "@/integrations/rvf/goalRepo";
@@ -743,21 +743,19 @@ const Index = () => {
           console.log(`📤 Calling Gemini API for step ${i}`);
           console.log(`   Context: ${previousStepsData.length} previous steps with ${previousStepsData.reduce((sum, s) => sum + s.data.length, 0)} total data items`);
           
-          const { data, error } = await supabase.functions.invoke('research-step', {
-            body: {
-              goal: researchGoal || userGoal,
-              stepTitle: currentStep.title,
-              stepDescription: currentStep.description,
-              stepType: currentStep.id,
-              aiModel: widgetConfig.aiModel,
-              config: {
-                researchGuidance: researchConfig.researchGuidance,
-                prompts: researchConfig.prompts,
-                parameters: researchConfig.parameters,
-                filters: researchConfig.filters,
-              },
-              previousStepsData: previousStepsData,
+          const { data, error } = await invokeFunction<DataItem[]>('research-step', {
+            goal: researchGoal || userGoal,
+            stepTitle: currentStep.title,
+            stepDescription: currentStep.description,
+            stepType: currentStep.id,
+            aiModel: widgetConfig.aiModel,
+            config: {
+              researchGuidance: researchConfig.researchGuidance,
+              prompts: researchConfig.prompts,
+              parameters: researchConfig.parameters,
+              filters: researchConfig.filters,
             },
+            previousStepsData: previousStepsData,
           });
 
           if (error) {
@@ -860,15 +858,13 @@ const Index = () => {
           })
         }));
 
-        const { data, error } = await supabase.functions.invoke('research-step', {
-          body: {
-            goal: researchGoal || userGoal,
-            stepTitle: "Final Recommendations",
-            stepDescription: `Based on all research findings, provide specific, actionable recommendations that directly answer: "${researchGoal || userGoal}". Include concrete suggestions with supporting data from the research.`,
-            stepType: "final-report",
-            aiModel: widgetConfig.aiModel,
-            previousStepsData: allResearchContext,
-          },
+        const { data, error } = await invokeFunction<unknown[]>('research-step', {
+          goal: researchGoal || userGoal,
+          stepTitle: "Final Recommendations",
+          stepDescription: `Based on all research findings, provide specific, actionable recommendations that directly answer: "${researchGoal || userGoal}". Include concrete suggestions with supporting data from the research.`,
+          stepType: "final-report",
+          aiModel: widgetConfig.aiModel,
+          previousStepsData: allResearchContext,
         });
 
         if (!error && data && Array.isArray(data)) {

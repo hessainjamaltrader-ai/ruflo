@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Target, Sparkles, Settings, TrendingUp, Building2, Heart, GraduationCap, Code, Cpu, Brain, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/integrations/functions/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface GoalInputProps {
@@ -69,18 +69,14 @@ export const GoalInput = ({ onSubmit, isPlanning, onAdvancedSettings, onConfigUp
     try {
       // Generate goal and optimize config in parallel
       const [goalResult, configResult] = await Promise.all([
-        supabase.functions.invoke('generate-research-goal', {
-          body: { category }
+        invokeFunction<{ goals?: string[] }>('generate-research-goal', { category }),
+        invokeFunction<{ config?: unknown }>('optimize-research-config', {
+          preset: categoryToPresetMap[category] || 'academic-deep',
+          currentGoal: '',
         }),
-        supabase.functions.invoke('optimize-research-config', {
-          body: { 
-            preset: categoryToPresetMap[category] || 'academic-deep',
-            currentGoal: '' 
-          }
-        })
       ]);
 
-      if (goalResult.error) throw goalResult.error;
+      if (goalResult.error) throw new Error(goalResult.error.message);
 
       if (goalResult.data?.goals && goalResult.data.goals.length > 0) {
         // Set the first generated goal

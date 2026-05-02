@@ -101,10 +101,11 @@ test.describe('W-2 research-step — invocation contract', () => {
 
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const sb = await import('/src/integrations/supabase/client.ts');
-      const { data, error } = await sb.supabase.functions.invoke('research-step', {
-        body: { goal: 'g', stepTitle: 't', stepDescription: 'd', stepType: 'st' },
-      });
+      const fn = await import('/src/integrations/functions/client.ts');
+      const { data, error } = await fn.invokeFunction(
+        'research-step',
+        { goal: 'g', stepTitle: 't', stepDescription: 'd', stepType: 'st' },
+      );
       return { dataLen: Array.isArray(data) ? data.length : -1, error: error?.message ?? null };
     });
 
@@ -122,10 +123,11 @@ test.describe('W-2 research-step — invocation contract', () => {
 
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const sb = await import('/src/integrations/supabase/client.ts');
-      const { data, error } = await sb.supabase.functions.invoke('research-step', {
-        body: { goal: 'g', stepTitle: 't', stepDescription: 'd', stepType: 'st' },
-      });
+      const fn = await import('/src/integrations/functions/client.ts');
+      const { data, error } = await fn.invokeFunction(
+        'research-step',
+        { goal: 'g', stepTitle: 't', stepDescription: 'd', stepType: 'st' },
+      );
       return { hasData: !!data, hasError: !!error };
     });
     expect(result.hasError).toBe(true);
@@ -146,13 +148,15 @@ test.describe('W-3 generate-action-items — invocation contract', () => {
 
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const sb = await import('/src/integrations/supabase/client.ts');
-      const { data, error } = await sb.supabase.functions.invoke('generate-action-items', {
-        body: { goal: 'g', researchContext: [], totalSteps: 0, totalDataPoints: 0 },
-      });
+      const fn = await import('/src/integrations/functions/client.ts');
+      const { data, error } = await fn.invokeFunction(
+        'generate-action-items',
+        { goal: 'g', researchContext: [], totalSteps: 0, totalDataPoints: 0 },
+      );
+      const d = data as { actionItems?: Array<{ title?: string }> } | null;
       return {
-        count: data?.actionItems?.length ?? -1,
-        firstTitle: data?.actionItems?.[0]?.title ?? null,
+        count: d?.actionItems?.length ?? -1,
+        firstTitle: d?.actionItems?.[0]?.title ?? null,
         errMsg: error?.message ?? null,
       };
     });
@@ -168,10 +172,11 @@ test.describe('W-3 generate-action-items — invocation contract', () => {
 
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const sb = await import('/src/integrations/supabase/client.ts');
-      const { data, error } = await sb.supabase.functions.invoke('generate-action-items', {
-        body: { goal: 'g', researchContext: [], totalSteps: 0, totalDataPoints: 0 },
-      });
+      const fn = await import('/src/integrations/functions/client.ts');
+      const { data, error } = await fn.invokeFunction(
+        'generate-action-items',
+        { goal: 'g', researchContext: [], totalSteps: 0, totalDataPoints: 0 },
+      );
       return { hasError: !!error, hasData: !!data };
     });
     expect(result.hasError).toBe(true);
@@ -191,12 +196,14 @@ test.describe('W-4 optimize-research-config — invocation contract', () => {
 
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const sb = await import('/src/integrations/supabase/client.ts');
-      const { data, error } = await sb.supabase.functions.invoke('optimize-research-config', {
-        body: { preset: 'academic-deep', currentGoal: 'g' },
-      });
+      const fn = await import('/src/integrations/functions/client.ts');
+      const { data, error } = await fn.invokeFunction(
+        'optimize-research-config',
+        { preset: 'academic-deep', currentGoal: 'g' },
+      );
+      const d = data as { config?: { researchGuidance?: { depth?: string } } } | null;
       return {
-        depth: data?.config?.researchGuidance?.depth ?? null,
+        depth: d?.config?.researchGuidance?.depth ?? null,
         errMsg: error?.message ?? null,
       };
     });
@@ -211,10 +218,11 @@ test.describe('W-4 optimize-research-config — invocation contract', () => {
 
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const sb = await import('/src/integrations/supabase/client.ts');
-      const { data, error } = await sb.supabase.functions.invoke('optimize-research-config', {
-        body: { preset: 'academic-deep' },
-      });
+      const fn = await import('/src/integrations/functions/client.ts');
+      const { data, error } = await fn.invokeFunction(
+        'optimize-research-config',
+        { preset: 'academic-deep' },
+      );
       return { hasError: !!error, hasData: !!data };
     });
     expect(result.hasError).toBe(true);

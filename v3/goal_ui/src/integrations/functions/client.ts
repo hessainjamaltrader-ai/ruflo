@@ -1,14 +1,10 @@
 /**
- * Browser-side fetch client for the LOCAL_FN / GCF replacement of
- * Supabase Edge Functions. Replaces `supabase.functions.invoke()`.
+ * Browser-side fetch client for the LOCAL_FN / GCF stack.
  *
- * Step 19 (ADR-093). Wires generate-research-goal end-to-end against
- * the Hono dev server (port 8787) or the GCF deployment (URL set
- * via `VITE_FUNCTIONS_BASE_URL`).
- *
- * The GoalInput.tsx callsite swap is deferred to Step 21 (Supabase
- * removal) so the production behavior stays Supabase-backed until
- * the LOCAL_FN/GCF stack has been hardened (Step 22b CORS + tokens).
+ * Steps 19 + 21a/b (ADR-093). All goal_ui workflows route through
+ * here — fetches the Hono dev server (port 8787) or the GCF
+ * deployment, URL set via `VITE_FUNCTIONS_BASE_URL`. Returns a
+ * `{data, error}` envelope.
  */
 
 import { FUNCTIONS_BASE_URL, FUNCTIONS_PUBLIC_TOKEN } from '@/lib/featureFlags';

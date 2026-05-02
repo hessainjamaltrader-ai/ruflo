@@ -38,7 +38,7 @@ import {
   CheckSquare,
 } from "lucide-react";
 import { Step } from "@/lib/goapPlanner";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/integrations/functions/client";
 
 interface ResearchReportModalProps {
   open: boolean;
@@ -116,13 +116,11 @@ export const ResearchReportModal = ({
       }));
 
       // Call AI to generate contextual action items
-      const { data, error } = await supabase.functions.invoke('generate-action-items', {
-        body: {
-          goal: userGoal,
-          researchContext: researchContext,
-          totalSteps: steps.length,
-          totalDataPoints: steps.reduce((sum, step) => sum + step.data.length, 0)
-        }
+      const { data, error } = await invokeFunction<{ actionItems?: unknown[]; summary?: string }>('generate-action-items', {
+        goal: userGoal,
+        researchContext: researchContext,
+        totalSteps: steps.length,
+        totalDataPoints: steps.reduce((sum, step) => sum + step.data.length, 0),
       });
 
       if (!error && data) {

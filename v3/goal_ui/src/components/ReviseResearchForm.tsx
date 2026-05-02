@@ -27,7 +27,7 @@ import {
   Shield,
   Rocket
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/integrations/functions/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReviseResearchFormProps {
@@ -179,11 +179,12 @@ Always include sources, confidence levels, and timestamps when available.`,
   const optimizeConfig = async (preset: string) => {
     setIsOptimizing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('optimize-research-config', {
-        body: { preset, currentGoal: config.goal }
+      const { data, error } = await invokeFunction<{ config?: ResearchConfig }>('optimize-research-config', {
+        preset,
+        currentGoal: config.goal,
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
 
       if (data?.config) {
         setConfig({
