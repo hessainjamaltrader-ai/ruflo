@@ -67,7 +67,7 @@ export class ByzantineConsensus extends EventEmitter {
       timeoutMs: config.timeoutMs ?? SWARM_CONSTANTS.DEFAULT_CONSENSUS_TIMEOUT_MS,
       maxRounds: config.maxRounds ?? 10,
       requireQuorum: config.requireQuorum ?? true,
-      maxFaultyNodes: config.maxFaultyNodes ?? 1,
+      maxFaultyNodes: config.maxFaultyNodes, // #G2: undefined → byzantineF() derives from cluster size; a value caps it
       viewChangeTimeoutMs: config.viewChangeTimeoutMs ?? 5000,
       transport: config.transport,
     };
@@ -149,6 +149,20 @@ export class ByzantineConsensus extends EventEmitter {
     this.nodes.delete(nodeId);
   }
 
+  /**
+   * ADR-095 G2 — BFT fault tolerance f, derived from the *actual* cluster
+   * size unless explicitly capped via config.maxFaultyNodes. PBFT needs
+   * n ≥ 3f+1, so f = floor((n-1)/3) where n = self + known peers. The
+   * config value (if set) acts as an upper bound — never exceed what the
+   * operator declared the cluster can tolerate.
+   */
+  private byzantineF(): number {
+    const n = this.nodes.size + 1; // self + known peers
+    const derived = Math.max(1, Math.floor((n - 1) / 3));
+    const cap = this.config.maxFaultyNodes;
+    return cap === undefined ? derived : Math.min(derived, cap);
+  }
+
   electPrimary(): string {
     const nodeIds = [this.node.id, ...Array.from(this.nodes.keys())];
     const primaryIndex = this.node.viewNumber % nodeIds.length;
@@ -222,7 +236,7 @@ export class ByzantineConsensus extends EventEmitter {
     proposal.votes.set(vote.voterId, vote);
 
     // Check consensus
-    const f = this.config.maxFaultyNodes ?? 1;
+    const f = this.byzantineF();
     const n = this.nodes.size + 1;
     const requiredVotes = 2 * f + 1;
 
@@ -321,7 +335,7 @@ export class ByzantineConsensus extends EventEmitter {
     }
 
     // Check if prepared (2f + 1 prepare messages)
-    const f = this.config.maxFaultyNodes ?? 1;
+    const f = this.byzantineF();
     const prepareCount = messages.filter(m => m.type === 'prepare').length;
 
     if (prepareCount >= 2 * f + 1) {
@@ -371,7 +385,7 @@ export class ByzantineConsensus extends EventEmitter {
     }
 
     // Check if committed (2f + 1 commit messages)
-    const f = this.config.maxFaultyNodes ?? 1;
+    const f = this.byzantineF();
     const commitCount = messages.filter(m => m.type === 'commit').length;
 
     if (commitCount >= 2 * f + 1) {
