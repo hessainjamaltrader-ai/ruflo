@@ -126,6 +126,24 @@
       "desc": "Stream multiplexing \u2014 AgentMessage.streamId, per-(address,streamId) receive queue, scoped+catch-all onMessage handlers. Cross-OS validated mac\u2192ruvultra: 5 rpc + 3 event interleaved on wire, server's per-stream handlers received exactly 5 + 3 in correct order, catch-all saw all 8. agentic-flow@2.0.12-fix.8.",
       "file": "v3/@claude-flow/plugin-agent-federation/dist/plugin.js",
       "marker": "loadQuicTransport"
+    },
+    {
+      "id": "ADR-111",
+      "desc": "Federation WG mesh layer (Phases 1-6) \u2014 opt-in WireGuard control plane that propagates federation breaker state to packet-layer reachability. readSafePeerWgFields validator closes peer-content injection vector found during security audit.",
+      "file": "v3/@claude-flow/plugin-agent-federation/dist/domain/services/wg-mesh-service.js",
+      "marker": "readSafePeerWgFields"
+    },
+    {
+      "id": "ADR-112",
+      "desc": "MCP tool discoverability audit \u2014 every tool description must include 'Use when ... is wrong because ...' guidance so Claude picks Ruflo over native Bash/Read/Write/Task correctly. CI guard at scripts/audit-tool-descriptions.mjs gates against regressions via monotone-decreasing baseline at verification/mcp-tool-baseline.json. 285/285 tools have guidance (was 6/285 before this work).",
+      "file": "scripts/audit-tool-descriptions.mjs",
+      "marker": "MIN_DESCRIPTION_LENGTH"
+    },
+    {
+      "id": "#1892",
+      "desc": "Statusline version no longer hardcoded to V3.5/V3.6 \u2014 reads from installed @claude-flow/cli package.json at runtime via resolveBannerVersion() so UI matches `ruflo doctor` output.",
+      "file": "v3/@claude-flow/cli/.claude/helpers/statusline.js",
+      "marker": "resolveBannerVersion"
     }
   ]
 }

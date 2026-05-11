@@ -70,7 +70,7 @@ function saveTaskStore(store: TaskStore): void {
 export const taskTools: MCPTool[] = [
   {
     name: 'task_create',
-    description: 'Create a new task',
+    description: 'Create a new task Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',
@@ -124,7 +124,7 @@ export const taskTools: MCPTool[] = [
   },
   {
     name: 'task_status',
-    description: 'Get task status',
+    description: 'Get task status Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',
@@ -168,7 +168,7 @@ export const taskTools: MCPTool[] = [
   },
   {
     name: 'task_list',
-    description: 'List all tasks',
+    description: 'List all tasks Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',
@@ -230,7 +230,7 @@ export const taskTools: MCPTool[] = [
   },
   {
     name: 'task_complete',
-    description: 'Mark task as complete',
+    description: 'Mark task as complete Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',
@@ -295,7 +295,7 @@ export const taskTools: MCPTool[] = [
   },
   {
     name: 'task_update',
-    description: 'Update task status or progress',
+    description: 'Update task status or progress Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',
@@ -350,7 +350,7 @@ export const taskTools: MCPTool[] = [
   },
   {
     name: 'task_assign',
-    description: 'Assign a task to one or more agents',
+    description: 'Assign a task to one or more agents Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',
@@ -438,7 +438,7 @@ export const taskTools: MCPTool[] = [
   },
   {
     name: 'task_cancel',
-    description: 'Cancel a task',
+    description: 'Cancel a task Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',

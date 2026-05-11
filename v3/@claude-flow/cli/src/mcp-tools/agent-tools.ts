@@ -285,7 +285,7 @@ export const agentTools: MCPTool[] = [
     // updating the agent record with lastResult / taskCount / status.
     // No mock — actual HTTP request to api.anthropic.com.
     name: 'agent_execute',
-    description: 'Execute a task on a spawned agent — calls the Anthropic Messages API with the agent\'s configured model. Requires ANTHROPIC_API_KEY in env.',
+    description: 'Run a task on a previously-spawned agent_spawn record via the Anthropic Messages API with that agent\'s configured model. Use when native Task tool is wrong because (a) you need the spawned agent\'s persistent config (model, instructions, cost-tracking attribution) to apply to this turn, (b) the result needs to feed back into the agent\'s lifecycle (taskCount, lastResult, swarm-coordinated state), or (c) you want explicit model routing via the spawn record\'s `model` field instead of inheriting. For one-shot Claude prompts without a tracked agent, native Task is fine. Requires ANTHROPIC_API_KEY in env.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -317,7 +317,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_terminate',
-    description: 'Terminate an agent',
+    description: 'Remove a Ruflo-tracked agent from the registry and free its swarm slot. Use when you need to (a) clean up a spawned agent so its cost-tracking row finalizes, (b) reclaim a swarm-topology slot for another agent, or (c) end a stuck agent without restarting the whole swarm. For one-shot Task tool invocations that already self-terminate, this tool is not needed. Pair with agent_list first to confirm the agentId.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -354,7 +354,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_status',
-    description: 'Get agent status',
+    description: 'Read the lifecycle state of a single tracked agent: idle/running/stopped, current taskCount, lastResult, model, health score. Use when native Task tool is wrong because you need agent-level state (status across turns, accumulated taskCount, last error, swarm coordination) rather than a one-shot response. For inspecting a Task you just ran, native Task output is fine. Pair with agent_list to find the agentId first.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -393,7 +393,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_list',
-    description: 'List all agents',
+    description: 'List every Ruflo-tracked agent in the registry with its type, model, status, and taskCount. Use when native Task tool is wrong because you need to see the swarm-wide agent inventory across turns (which agents exist, their roles, their cost-tracking handles) rather than spawn a new one-shot Task. Filter by status/domain/agentType if needed. For starting a fresh single-shot subagent, native Task is fine.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -449,7 +449,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_pool',
-    description: 'Manage agent pool',
+    description: 'Manage a fixed-size warm pool of pre-spawned agents to skip cold-start cost on bursty workloads. Use when native Task is wrong because (a) you have a queue of similar tasks and want to amortize spawn latency, (b) cost-tracking wants stable agentIds across requests, or (c) swarm topology requires a known agent count at all times. For one-shot work, just call agent_spawn or native Task. Pool sizes and warm/idle thresholds are set per-pool.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -571,7 +571,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_health',
-    description: 'Check agent health',
+    description: 'Compute an agent\'s rolling health score (0-1) from recent task success ratio + response-latency p50/p95 + error rate. Use when native Task tool is wrong because you\'re running a long-lived agent (autonomous loop / hive-mind worker / federation peer) and need to detect degradation before the breaker trips it. For one-shot Task invocations there is no history to score. Pair with hooks_post-task so the scores stay current.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -649,7 +649,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_update',
-    description: 'Update agent status or config',
+    description: 'Mutate a tracked agent\'s config (model, instructions, status, health) without re-spawning. Use when native Task tool is wrong because the agent already has accumulated state (taskCount, swarm membership, cost-tracking attribution) and you only need to tweak one field — for example, promoting an idle agent to running on a new task, or rotating its model from haiku to sonnet mid-loop. For a brand-new subagent, agent_spawn (or native Task) is the right call.',
     category: 'agent',
     inputSchema: {
       type: 'object',

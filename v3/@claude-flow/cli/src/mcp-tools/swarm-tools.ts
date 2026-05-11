@@ -142,7 +142,7 @@ const VALID_TOPOLOGIES = new Set([
 export const swarmTools: MCPTool[] = [
   {
     name: 'swarm_init',
-    description: 'Initialize a swarm with persistent state tracking',
+    description: 'Initialize a swarm with persistent state tracking Use when native Task tool is wrong because you need multi-agent coordination — topology (hierarchical/mesh/star), consensus (raft/byzantine/gossip/crdt/quorum), shared memory namespace, or anti-drift gates. For independent one-shot subagents, native Task is fine; spawn each separately.',
     category: 'swarm',
     inputSchema: {
       type: 'object',
@@ -219,7 +219,7 @@ export const swarmTools: MCPTool[] = [
   },
   {
     name: 'swarm_status',
-    description: 'Get swarm status from persistent state',
+    description: 'Get swarm status from persistent state Use when native Task tool is wrong because you need multi-agent coordination — topology (hierarchical/mesh/star), consensus (raft/byzantine/gossip/crdt/quorum), shared memory namespace, or anti-drift gates. For independent one-shot subagents, native Task is fine; spawn each separately.',
     category: 'swarm',
     inputSchema: {
       type: 'object',
@@ -282,7 +282,7 @@ export const swarmTools: MCPTool[] = [
   },
   {
     name: 'swarm_shutdown',
-    description: 'Shutdown a swarm and update persistent state',
+    description: 'Shutdown a swarm and update persistent state Use when native Task tool is wrong because you need multi-agent coordination — topology (hierarchical/mesh/star), consensus (raft/byzantine/gossip/crdt/quorum), shared memory namespace, or anti-drift gates. For independent one-shot subagents, native Task is fine; spawn each separately.',
     category: 'swarm',
     inputSchema: {
       type: 'object',
@@ -344,7 +344,7 @@ export const swarmTools: MCPTool[] = [
   },
   {
     name: 'swarm_health',
-    description: 'Check swarm health status with real state inspection',
+    description: 'Check swarm health status with real state inspection Use when native Task tool is wrong because you need multi-agent coordination — topology (hierarchical/mesh/star), consensus (raft/byzantine/gossip/crdt/quorum), shared memory namespace, or anti-drift gates. For independent one-shot subagents, native Task is fine; spawn each separately.',
     category: 'swarm',
     inputSchema: {
       type: 'object',

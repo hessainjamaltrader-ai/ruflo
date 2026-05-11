@@ -101,7 +101,7 @@ function saveMetrics(metrics: SystemMetrics): void {
 export const systemTools: MCPTool[] = [
   {
     name: 'system_status',
-    description: 'Get overall system status',
+    description: 'Get overall system status Use when native Bash is wrong because you need Ruflo runtime metrics (HNSW index size, ReasoningBank state, swarm health, breaker status) — those are not in /proc, only in the running daemon. For OS-level info (uptime, disk, mem), native Bash + standard tools are fine.',
     category: 'system',
     inputSchema: {
       type: 'object',
@@ -145,7 +145,7 @@ export const systemTools: MCPTool[] = [
   },
   {
     name: 'system_metrics',
-    description: 'Get system metrics and performance data',
+    description: 'Get system metrics and performance data Use when native Bash is wrong because you need Ruflo runtime metrics (HNSW index size, ReasoningBank state, swarm health, breaker status) — those are not in /proc, only in the running daemon. For OS-level info (uptime, disk, mem), native Bash + standard tools are fine.',
     category: 'system',
     inputSchema: {
       type: 'object',
@@ -298,7 +298,7 @@ export const systemTools: MCPTool[] = [
   },
   {
     name: 'system_health',
-    description: 'Perform system health check',
+    description: 'Perform system health check Use when native Bash is wrong because you need Ruflo runtime metrics (HNSW index size, ReasoningBank state, swarm health, breaker status) — those are not in /proc, only in the running daemon. For OS-level info (uptime, disk, mem), native Bash + standard tools are fine.',
     category: 'system',
     inputSchema: {
       type: 'object',
@@ -488,7 +488,7 @@ export const systemTools: MCPTool[] = [
   },
   {
     name: 'system_info',
-    description: 'Get system information',
+    description: 'Get system information Use when native Bash is wrong because you need Ruflo runtime metrics (HNSW index size, ReasoningBank state, swarm health, breaker status) — those are not in /proc, only in the running daemon. For OS-level info (uptime, disk, mem), native Bash + standard tools are fine.',
     category: 'system',
     inputSchema: {
       type: 'object',
@@ -523,7 +523,7 @@ export const systemTools: MCPTool[] = [
   },
   {
     name: 'system_reset',
-    description: 'Reset system state',
+    description: 'Reset system state Use when native Bash is wrong because you need Ruflo runtime metrics (HNSW index size, ReasoningBank state, swarm health, breaker status) — those are not in /proc, only in the running daemon. For OS-level info (uptime, disk, mem), native Bash + standard tools are fine.',
     category: 'system',
     inputSchema: {
       type: 'object',
@@ -566,7 +566,7 @@ export const systemTools: MCPTool[] = [
   },
   {
     name: 'mcp_status',
-    description: 'Get MCP server status, including stdio mode detection',
+    description: 'Get MCP server status, including stdio mode detection Use when native Claude Code MCP status is wrong because you need Ruflo-side server detail — tool counts per namespace, transport stats, MCP handshake errors. For just "is MCP up?", `claude mcp list` is fine.',
     category: 'system',
     inputSchema: {
       type: 'object',
@@ -625,7 +625,7 @@ export const systemTools: MCPTool[] = [
   },
   {
     name: 'task_summary',
-    description: 'Get a summary of all tasks by status',
+    description: 'Get a summary of all tasks by status Use when native TodoWrite is wrong because you need cross-session task persistence, agent assignment, dependency tracking, or completion analytics in the .swarm/memory.db. For in-session checklists native TodoWrite is simpler and faster.',
     category: 'task',
     inputSchema: {
       type: 'object',

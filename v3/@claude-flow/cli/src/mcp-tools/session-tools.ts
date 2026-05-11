@@ -140,7 +140,7 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
 export const sessionTools: MCPTool[] = [
   {
     name: 'session_save',
-    description: 'Save current session state',
+    description: 'Save current session state Use when native conversation memory is wrong because you need durable cross-session state — restoring agent definitions, swarm topology, memory store, breaker history. For in-session continuation only, no tool needed. Pair with session_save before exiting and session_restore on resume.',
     category: 'session',
     inputSchema: {
       type: 'object',
@@ -205,7 +205,7 @@ export const sessionTools: MCPTool[] = [
   },
   {
     name: 'session_restore',
-    description: 'Restore a saved session',
+    description: 'Restore a saved session Use when native conversation memory is wrong because you need durable cross-session state — restoring agent definitions, swarm topology, memory store, breaker history. For in-session continuation only, no tool needed. Pair with session_save before exiting and session_restore on resume.',
     category: 'session',
     inputSchema: {
       type: 'object',
@@ -306,7 +306,7 @@ export const sessionTools: MCPTool[] = [
   },
   {
     name: 'session_list',
-    description: 'List saved sessions',
+    description: 'List saved sessions Use when native conversation memory is wrong because you need durable cross-session state — restoring agent definitions, swarm topology, memory store, breaker history. For in-session continuation only, no tool needed. Pair with session_save before exiting and session_restore on resume.',
     category: 'session',
     inputSchema: {
       type: 'object',
@@ -374,7 +374,7 @@ export const sessionTools: MCPTool[] = [
   },
   {
     name: 'session_delete',
-    description: 'Delete a saved session',
+    description: 'Delete a saved session Use when native conversation memory is wrong because you need durable cross-session state — restoring agent definitions, swarm topology, memory store, breaker history. For in-session continuation only, no tool needed. Pair with session_save before exiting and session_restore on resume.',
     category: 'session',
     inputSchema: {
       type: 'object',
@@ -409,7 +409,7 @@ export const sessionTools: MCPTool[] = [
   },
   {
     name: 'session_info',
-    description: 'Get detailed session information',
+    description: 'Get detailed session information Use when native conversation memory is wrong because you need durable cross-session state — restoring agent definitions, swarm topology, memory store, breaker history. For in-session continuation only, no tool needed. Pair with session_save before exiting and session_restore on resume.',
     category: 'session',
     inputSchema: {
       type: 'object',

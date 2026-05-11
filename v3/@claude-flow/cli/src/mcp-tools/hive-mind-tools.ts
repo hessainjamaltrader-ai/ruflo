@@ -225,7 +225,7 @@ function saveAgentStore(store: { agents: Record<string, unknown> }): void {
 export const hiveMindTools: MCPTool[] = [
   {
     name: 'hive-mind_spawn',
-    description: 'Spawn workers and automatically join them to the hive-mind (combines agent/spawn + hive-mind/join)',
+    description: 'Spawn workers and automatically join them to the hive-mind (combines agent/spawn + hive-mind/join) Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -296,7 +296,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_init',
-    description: 'Initialize the hive-mind collective',
+    description: 'Initialize the hive-mind collective Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -353,7 +353,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_status',
-    description: 'Get hive-mind status',
+    description: 'Get hive-mind status Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -455,7 +455,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_join',
-    description: 'Join an agent to the hive-mind',
+    description: 'Join an agent to the hive-mind Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -491,7 +491,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_leave',
-    description: 'Remove an agent from the hive-mind',
+    description: 'Remove an agent from the hive-mind Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -523,7 +523,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_consensus',
-    description: 'Propose or vote on consensus with BFT, Raft, or Quorum strategies',
+    description: 'Propose or vote on consensus with BFT, Raft, or Quorum strategies Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -841,7 +841,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_broadcast',
-    description: 'Broadcast message to all workers',
+    description: 'Broadcast message to all workers Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -889,7 +889,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_shutdown',
-    description: 'Shutdown the hive-mind and terminate all workers',
+    description: 'Shutdown the hive-mind and terminate all workers Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
@@ -954,7 +954,7 @@ export const hiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_memory',
-    description: 'Access hive shared memory',
+    description: 'Access hive shared memory Use when native Task is wrong because you need queen-led collective intelligence — Byzantine-FT consensus, broadcast across many worker agents, shared memory with bounded conflict. For a single subagent, native Task is fine. Pair with swarm_init first to set topology.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',

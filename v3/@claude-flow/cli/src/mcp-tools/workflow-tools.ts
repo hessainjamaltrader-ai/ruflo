@@ -82,7 +82,7 @@ function saveWorkflowStore(store: WorkflowStore): void {
 export const workflowTools: MCPTool[] = [
   {
     name: 'workflow_run',
-    description: 'Run a workflow from a template or file',
+    description: 'Run a workflow from a template or file Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -194,7 +194,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_create',
-    description: 'Create a new workflow',
+    description: 'Create a new workflow Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -262,7 +262,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_execute',
-    description: 'Execute a workflow',
+    description: 'Execute a workflow Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -448,7 +448,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_status',
-    description: 'Get workflow status',
+    description: 'Get workflow status Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -509,7 +509,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_list',
-    description: 'List all workflows',
+    description: 'List all workflows Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -556,7 +556,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_pause',
-    description: 'Pause a running workflow',
+    description: 'Pause a running workflow Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -595,7 +595,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_resume',
-    description: 'Resume a paused workflow',
+    description: 'Resume a paused workflow Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -646,7 +646,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_cancel',
-    description: 'Cancel a workflow',
+    description: 'Cancel a workflow Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -699,7 +699,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_delete',
-    description: 'Delete a workflow',
+    description: 'Delete a workflow Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -737,7 +737,7 @@ export const workflowTools: MCPTool[] = [
   },
   {
     name: 'workflow_template',
-    description: 'Save workflow as template or create from template',
+    description: 'Save workflow as template or create from template Use when native TodoWrite + sequential Bash is wrong because the work has a real dependency graph that needs persistence, retry policy, pause/resume, and step-output binding across LLM-driven steps. For a single linear todo list, native TodoWrite is fine.',
     category: 'workflow',
     inputSchema: {
       type: 'object',

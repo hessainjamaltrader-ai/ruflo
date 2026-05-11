@@ -384,6 +384,30 @@ jobs:
         shell: bash
         run: node plugins/ruflo-core/scripts/test-memory-import.mjs
 
+  tool-descriptions-audit:
+    # ADR-112 — gate: every MCP tool description must include "Use when …"
+    # guidance so Claude knows when to pick Ruflo's tool over native
+    # (Bash, Read, Grep, Glob, Task, TodoWrite, WebFetch). Baseline lives
+    # in verification/mcp-tool-baseline.json and is monotone-decreasing —
+    # the script fails the build if the no-guidance count goes UP. Run
+    # `node scripts/audit-tool-descriptions.mjs --update-baseline` after
+    # landing a description-improvement PR to lock the new floor.
+    name: Tool description discoverability (ADR-112)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run tool-description audit
+        shell: bash
+        run: node scripts/audit-tool-descriptions.mjs
+
   witness-verify:
     # Cryptographic regression guard: runs `ruflo verify --manifest` against
     # the local build to confirm every documented fix in verification.md.json
@@ -410,7 +434,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    needs: [smoke-install-no-bsqlite, plugin-hooks-smoke, mcp-protocol-smoke, memory-import-smoke]
+    needs: [smoke-install-no-bsqlite, plugin-hooks-smoke, mcp-protocol-smoke, memory-import-smoke, tool-descriptions-audit]
 
     steps:
       - name: Checkout code
