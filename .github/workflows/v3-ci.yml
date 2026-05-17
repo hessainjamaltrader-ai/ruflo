@@ -422,6 +422,486 @@ jobs:
         shell: bash
         run: node scripts/smoke-witness-verify-precondition.mjs
 
+  embeddings-ann-router-smoke:
+    # ADR-121 Phase 8 — AnnRouter composition. Auto-selects between
+    # HNSW (streaming/mutable), RaBitQ (batch/memory-tight), and
+    # DiskANN (persistent/billion-scale) based on a workload
+    # descriptor. Smoke exercises the full decision matrix +
+    # end-to-end HNSW lifecycle. Degrades cleanly when peer deps
+    # missing — never throws.
+    name: embeddings AnnRouter smoke (#2036, ADR-121 Phase 8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+
+      - name: Assert AnnRouter contract + decision matrix
+        shell: bash
+        run: node scripts/smoke-embeddings-ann-router.mjs
+
+  embeddings-diskann-smoke:
+    # ADR-121 Phase 5b — DiskannSnapshot end-to-end.
+    # Asserts: missing-peer-dep path throws named error; when the
+    # peer dep is installed, full lifecycle (add → buildAsync →
+    # search → save → DiskannSnapshot.load → re-query → delete)
+    # works against the real native binding. delete() is a logical
+    # tombstone (count stays stable) — documented in the smoke so
+    # operators don't get surprised by it.
+    name: embeddings DiskannSnapshot smoke (#2036, ADR-121 Phase 5b)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+
+      - name: Assert DiskannSnapshot contract
+        shell: bash
+        run: node scripts/smoke-embeddings-diskann.mjs
+
+  cli-search-text-diverse-smoke:
+    # ADR-121 Phase 10 — embeddings_search_text_diverse (MMR-reranked RAG).
+    # Plain top-k returns near-duplicates on duplicate-heavy corpora.
+    # MMR (Carbonell-Goldstein 1998) reranks for diversity via the
+    # λ * relevance − (1-λ) * max_sim_to_picked tradeoff. Smoke
+    # drives the full flow: init → router build → plain search_text
+    # → diverse search_text → λ extremes (0.0 and 1.0). Asserts MMR
+    # actually applies (vectors surfaced by backing) + ID uniqueness.
+    name: cli embeddings_search_text_diverse smoke (#2036, ADR-121 Phase 10)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build embeddings then CLI
+        run: |
+          cd v3/@claude-flow/embeddings
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+          cd ../cli
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc --build --force tsconfig.json
+
+      - name: Assert MMR diversity-rerank contract
+        shell: bash
+        run: node scripts/smoke-cli-search-text-diverse.mjs
+
+  cli-search-text-batch-smoke:
+    # ADR-121 Phase 9b — embeddings_search_text_batch (multi-query RAG).
+    # Question-reformulation pattern: expand one user question into
+    # N variants, retrieve top-k for each, merge. Embeddings + searches
+    # run in parallel where the backing supports it. Per-query errors
+    # captured in the result entry rather than aborting the batch.
+    # Smoke drives the full flow + mixed-success path + validation.
+    name: cli embeddings_search_text_batch smoke (#2036, ADR-121 Phase 9b)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build embeddings then CLI
+        run: |
+          cd v3/@claude-flow/embeddings
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+          cd ../cli
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc --build --force tsconfig.json
+
+      - name: Assert batch RAG contract
+        shell: bash
+        run: node scripts/smoke-cli-search-text-batch.mjs
+
+  cli-search-text-smoke:
+    # ADR-121 Phase 9 — embeddings_search_text one-call RAG.
+    # Embeds the query inline then routes through the named AnnRouter
+    # handle in one MCP call. Returns hits + per-stage latency
+    # (embeddingMs/searchMs/totalMs) for cost attribution. Smoke
+    # drives the full flow + asserts the latency contract +
+    # graceful missing-handle path.
+    name: cli embeddings_search_text smoke (#2036, ADR-121 Phase 9)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build embeddings then CLI
+        run: |
+          cd v3/@claude-flow/embeddings
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+          cd ../cli
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc --build --force tsconfig.json
+
+      - name: Assert one-call RAG contract
+        shell: bash
+        run: node scripts/smoke-cli-search-text.mjs
+
+  cli-ann-router-mcp-tools-smoke:
+    # ADR-121 Phase 8 (CLI) — embeddings_ann_router_{build,search,status}.
+    # Agent-facing wrapper over AnnRouter — agents declare workload,
+    # router picks HNSW/RaBitQ/DiskANN, agent sees the decision in
+    # the response. Smoke drives all 3 handlers end-to-end + asserts
+    # the routing decision is exposed + degradation is graceful.
+    name: cli AnnRouter MCP tools smoke (#2036, ADR-121 Phase 8 CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build embeddings then CLI
+        run: |
+          cd v3/@claude-flow/embeddings
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+          cd ../cli
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc --build --force tsconfig.json
+
+      - name: Assert AnnRouter MCP tools contract
+        shell: bash
+        run: node scripts/smoke-cli-ann-router-mcp-tools.mjs
+
+  cli-diskann-mcp-tools-smoke:
+    # ADR-121 Phase 5b — embeddings_diskann_{build,search,status} MCP tools.
+    # Three new tools in @claude-flow/cli that expose DiskannSnapshot
+    # to LLM agents: build a persistent ANN index, search it, inventory
+    # all in-process snapshots. Smoke drives all three handlers end-to-end
+    # against the real native binding and asserts the structured shape
+    # + the graceful-degradation path for missing snapshots.
+    name: cli diskann MCP tools smoke (#2036, ADR-121 Phase 5b CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build embeddings then CLI
+        run: |
+          cd v3/@claude-flow/embeddings
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+          cd ../cli
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc --build --force tsconfig.json
+
+      - name: Assert diskann MCP tools contract
+        shell: bash
+        run: node scripts/smoke-cli-diskann-mcp-tools.mjs
+
+  cli-embeddings-sidecar-tool-smoke:
+    # ADR-121 Phase 5 (full) — embeddings_check_ruvector_sidecar MCP tool.
+    # New tool exposed in @claude-flow/cli that proxies through
+    # @claude-flow/embeddings's probeRuvectorSidecar. LLM agents
+    # can ask "is the optimized ruvector backend reachable?" before
+    # dispatching embedding-heavy work that would benefit from it.
+    # Smoke asserts: tool registered, handler returns success:true
+    # with probeMs + available + single-line summary, never throws.
+    name: cli embeddings sidecar tool smoke (#2036, ADR-121 Phase 5 full)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build @claude-flow/embeddings then @claude-flow/cli
+        run: |
+          cd v3/@claude-flow/embeddings
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+          cd ../cli
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc --build --force tsconfig.json
+
+      - name: Assert MCP tool contract
+        shell: bash
+        run: node scripts/smoke-cli-embeddings-sidecar-tool.mjs
+
+  embeddings-sota-benchmark:
+    # ADR-121 — consolidated SOTA benchmark across all 6 phases.
+    # Runs every measurable acceptance gate in one pass: footprint,
+    # int8 recall, RaBitQ memory math, hyperbolic backend latency,
+    # sidecar availability. Emits a single JSON summary backing the
+    # package's headline SOTA claims.
+    #
+    # On 2026-05-17 (dev env, mac arm64): 6/6 gates PASS.
+    #   Phase 1 footprint:  -97.1% (34.7× smaller than Xenova)
+    #   Phase 3 int8 recall: 1.0000
+    #   Phase 3 RaBitQ:      32× reduction
+    #   Phase 3b backend:    native NAPI, 1 μs/op
+    #   Phase 5 sidecar:     83 tools / 15 groups when installed
+    name: embeddings SOTA consolidated benchmark (#2036, ADR-121)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+
+      - name: Run consolidated SOTA benchmark
+        shell: bash
+        run: node scripts/benchmark-embeddings-sota.mjs
+
+  embeddings-hyperbolic-attention-smoke:
+    # ADR-121 Phase 3b — @ruvector/attention Poincaré op wrapper.
+    # Asserts: all 5 async ops (project/distance/expMap/logMap/mobius)
+    # resolve without throwing regardless of whether the optional peer
+    # dep is installed, outputs are Float32Array of correct dim,
+    # identical-point distance ≈0, availability probe returns boolean.
+    # When the native binding loads in CI, the high-performance backend
+    # is exercised; otherwise the hand-rolled hyperbolic.ts fallback
+    # runs the same contract.
+    name: embeddings hyperbolic attention smoke (#2036, ADR-121 Phase 3b)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+
+      - name: Assert hyperbolic attention wrapper contract
+        shell: bash
+        run: node scripts/smoke-embeddings-hyperbolic-attention.mjs
+
+  embeddings-ruvector-sidecar-smoke:
+    # ADR-121 Phase 5 (lightweight) — ruvector sidecar probe contract.
+    # Asserts: probe handles missing-binary gracefully (available:false
+    # + reason), returns the documented shape (probeMs always present),
+    # never throws, and formatRuvectorAvailability produces single-line
+    # table-ready strings. When ruvector IS installed (CI optionally
+    # installs it), also asserts toolCount > 0 + version present.
+    # This is the foundation for the full sidecar wire-up that will
+    # land in @claude-flow/cli's doctor + MCP layer in a follow-up.
+    name: embeddings ruvector sidecar probe smoke (#2036, ADR-121 Phase 5)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+
+      - name: Assert probe handles missing-binary cleanly (no install)
+        shell: bash
+        run: node scripts/smoke-embeddings-ruvector-sidecar.mjs
+
+  embeddings-xenova-deprecation-smoke:
+    # ADR-121 Phase 4 — Xenova deprecation contract guard.
+    # Asserts: warning fires with the documented code on first
+    # construction, fires exactly once per process, names the
+    # migration target ('ruvector-onnx'), and is suppressible via
+    # CLAUDE_FLOW_SUPPRESS_DEPRECATION=1. Catches the regression
+    # class where a future refactor accidentally drops the
+    # deprecation hook or changes the warning code so operators'
+    # filters stop matching.
+    name: embeddings Xenova deprecation smoke (#2036, ADR-121 Phase 4)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+
+      - name: Assert deprecation warning contract
+        shell: bash
+        run: node scripts/smoke-embeddings-xenova-deprecation.mjs
+
+  embeddings-quantization-benchmark:
+    # ADR-121 Phase 3 acceptance benchmark — quantization recall +
+    # memory reduction.
+    # Asserts: int8 mean recall ≥0.98, min recall ≥0.95, RaBitQ
+    # theoretical reduction ≥32× for 384-dim, cache int8 mode is
+    # ~4× smaller than full float32.
+    # On 2026-05-17 the measured int8 mean recall was 1.0000
+    # (perfect round-trip on unit-normalized vectors).
+    name: embeddings quantization benchmark (#2036, ADR-121 Phase 3)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install + build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npx tsc -p tsconfig.json
+
+      - name: Assert quantization recall + memory reduction gates
+        shell: bash
+        run: node scripts/benchmark-embeddings-quantization.mjs
+
+  embeddings-footprint-benchmark:
+    # ADR-121 Phase 1 acceptance benchmark — install footprint.
+    # Runs three `npm install`s in isolated tmp projects:
+    #   - @xenova/transformers (legacy baseline)
+    #   - @huggingface/transformers (current TS upstream)
+    #   - ruvector-onnx-embeddings-wasm (Phase 1 target)
+    # Asserts the Phase 1 acceptance gate: ruvector-onnx is ≥30%
+    # smaller than the Xenova baseline. On 2026-05-17 the measured
+    # delta was -97.1% (7.13 MB vs 247.20 MB — 34× smaller).
+    #
+    # Cosine-similarity parity (>0.999 corr vs Xenova) is a separate
+    # slow-path job pending an upstream wasm-bindgen packaging fix
+    # in ruvector-onnx-embeddings-wasm.
+    name: embeddings install-footprint benchmark (#2036, ADR-121 Phase 1)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Measure + assert ≥30% footprint reduction vs Xenova
+        shell: bash
+        run: node scripts/benchmark-embeddings-footprint.mjs
+
+  embeddings-ruvector-onnx-smoke:
+    # ADR-121 Phase 1 regression guard — asserts @claude-flow/embeddings
+    # ships a working `ruvector-onnx` provider behind the existing
+    # createEmbeddingService factory. Catches the most likely regression
+    # class: a future refactor accidentally drops the factory case, the
+    # export, or the optional-peer declaration. Fast (no model
+    # download); the full parity benchmark is a separate slow-path
+    # gated test.
+    name: embeddings ruvector-onnx provider smoke (#2036, ADR-121)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install root + workspace deps
+        run: npm ci --legacy-peer-deps
+
+      - name: Build @claude-flow/embeddings
+        working-directory: v3/@claude-flow/embeddings
+        run: npx tsc -p tsconfig.json
+
+      - name: Drive ruvector-onnx provider through factory + error contract
+        shell: bash
+        run: node scripts/smoke-embeddings-ruvector-onnx.mjs
+
+  umbrella-version-lockstep-smoke:
+    # Regression guard for ruvnet/ruflo#2034 — the 12h verification
+    # runner's Check 2 (Published package smoke test) times out
+    # cold-installing `@claude-flow/cli@alpha` (~527 transitive deps,
+    # 60s budget). The recommended workaround is to use `ruflo@alpha
+    # --version` as a verification proxy. That only works if `ruflo`
+    # and `@claude-flow/cli` ship at the same version on every release.
+    # Our CLAUDE.md "Publishing to npm" rule documents the convention;
+    # this smoke automates it so a future maintainer can't ship one
+    # without the other and silently invalidate the verification proxy.
+    name: umbrella version lockstep smoke (#2034)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Assert claude-flow / ruflo / @claude-flow/cli versions match
+        shell: bash
+        run: node scripts/smoke-umbrella-version-lockstep.mjs
+
   hive-consensus-engine-smoke:
     # ADR-095 G2.2 regression guard — asserts the hive-mind MCP layer wires
     # the real `@claude-flow/swarm` ConsensusEngine via hive-consensus-runtime.

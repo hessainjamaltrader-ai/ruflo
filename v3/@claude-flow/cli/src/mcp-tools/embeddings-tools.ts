@@ -979,4 +979,536 @@ export const embeddingsTools: MCPTool[] = [
       return { success: true, ...getRabitqStatus() };
     },
   },
+  {
+    // ADR-121 Phase 5 (full) — sidecar MCP tool. Proxies through
+    // @claude-flow/embeddings's probeRuvectorSidecar so LLM agents
+    // can ask "is the optimized ruvector backend reachable?" before
+    // dispatching embedding-heavy work that would benefit from it.
+    // Composable: pair with `embeddings_status` for the full local
+    // capability picture, or with `agentdb_health` for the full
+    // memory-substrate picture.
+    name: 'embeddings_check_ruvector_sidecar',
+    description: 'Check whether the ruvector CLI MCP sidecar is reachable and report its version + MCP tool surface. Use when a multi-step embedding pipeline could delegate to the optimized native Rust backend instead of going through this JS layer — the report tells you whether that path is available. For "is anything broken?" use ruflo doctor; for "should I use ruvector for this batch?" use this tool. Never throws.',
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        timeoutMs: {
+          type: 'number',
+          description: 'Per-shellout timeout (default 5000ms).',
+        },
+      },
+    },
+    handler: async (input) => {
+      // Deep import — the top-level @claude-flow/embeddings barrel's
+      // type re-exports don't resolve cleanly through the CLI's
+      // bundler-mode TypeScript at workspace-symlink time (the dist
+      // file is present + has the export, but TS sees stale types).
+      // The dist sub-module path is stable across alpha bumps because
+      // `files: ['dist']` ships it.
+      // Use the `./<file>` wildcard sub-path (no `.js` suffix) — the
+      // exports map appends `.js` for the import target.
+      const mod = await import('@claude-flow/embeddings/ruvector-mcp-probe' as string) as {
+        probeRuvectorSidecar(opts?: { timeoutMs?: number }): Promise<unknown>;
+        formatRuvectorAvailability(r: unknown): string;
+      };
+      const timeoutMs = typeof input?.timeoutMs === 'number' ? (input.timeoutMs as number) : 5_000;
+      const report = await mod.probeRuvectorSidecar({ timeoutMs });
+      return {
+        success: true,
+        ...(report as Record<string, unknown>),
+        // Single-line summary suitable for inline display.
+        summary: mod.formatRuvectorAvailability(report),
+      };
+    },
+  },
+  // ============================================================
+  // ADR-121 Phase 5b — DiskannSnapshot MCP tools (alpha.47 CLI)
+  // ============================================================
+  //
+  // Process-level registry of named DiskannSnapshot handles. Build
+  // an index once, search it many times. Persistence to disk via
+  // the snapshot's storagePath; the handle is keyed by `name`.
+  // For in-memory snapshots, set persist: false and the index is
+  // re-built only while this process lives.
+  {
+    name: 'embeddings_diskann_build',
+    description: 'Build a DiskANN/Vamana ANN index from a batch of (id, vector) pairs. Use when you have a fixed corpus (≥10k vectors typical) that needs sub-millisecond ANN search and you want persistence across process restarts — for streaming inserts at smaller scale use SearchableEmbeddingCache instead, for batch in-memory 32×-compressed use RabitqSnapshot. Pair with embeddings_diskann_search to query, embeddings_diskann_status to inspect. Requires @ruvector/diskann (optional peer dep — throws a clear named error if missing).',
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Snapshot handle name (used by search + status). Must be unique per process.' },
+        dimension: { type: 'number', description: 'Embedding dimension.' },
+        entries: {
+          type: 'array',
+          description: 'Vectors to index. Each entry: { id: string, vector: number[] }.',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              vector: { type: 'array', items: { type: 'number' } },
+            },
+            required: ['id', 'vector'],
+          },
+        },
+        storagePath: { type: 'string', description: 'Optional directory for on-disk persistence (snapshot survives restarts via embeddings_diskann_load).' },
+      },
+      required: ['name', 'dimension', 'entries'],
+    },
+    handler: async (input) => {
+      const { getDiskannRegistry } = await import('../memory/diskann-registry.js');
+      const registry = getDiskannRegistry();
+      const name = input.name as string;
+      const dimension = input.dimension as number;
+      const entries = input.entries as Array<{ id: string; vector: number[] }>;
+      const storagePath = input.storagePath as string | undefined;
+      try {
+        const stats = await registry.build({ name, dimension, entries, storagePath });
+        return { success: true, name, ...stats };
+      } catch (err) {
+        return { success: false, name, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  },
+  {
+    name: 'embeddings_diskann_search',
+    description: 'Search a previously-built DiskANN index for the k nearest neighbors of a query vector. Use when you built an index via embeddings_diskann_build and now need ANN retrieval — returns ids + L2² distances sorted ascending. For text→vector→search in one call, pair with embeddings_generate first. For exact-match key lookup over a streaming cache, use SearchableEmbeddingCache.get instead.',
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Snapshot handle name (set by embeddings_diskann_build).' },
+        vector: { type: 'array', items: { type: 'number' }, description: 'Query vector. Must match the index dimension.' },
+        k: { type: 'number', description: 'Number of nearest neighbors to return.' },
+      },
+      required: ['name', 'vector', 'k'],
+    },
+    handler: async (input) => {
+      const { getDiskannRegistry } = await import('../memory/diskann-registry.js');
+      const registry = getDiskannRegistry();
+      const name = input.name as string;
+      const vector = new Float32Array(input.vector as number[]);
+      const k = input.k as number;
+      try {
+        const hits = await registry.search(name, vector, k);
+        return { success: true, name, k, hits };
+      } catch (err) {
+        return { success: false, name, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  },
+  {
+    name: 'embeddings_diskann_status',
+    description: 'List all DiskANN snapshots currently held by this MCP server, with their dimension, vector count, and storage path. Use when you want to inventory in-process indexes before opening a new one, or when debugging "which snapshot did I build?". For checking whether the @ruvector/diskann peer dep itself is installed, use embeddings_check_ruvector_sidecar (the family probe) instead.',
+    category: 'embeddings',
+    inputSchema: { type: 'object', properties: {} },
+    handler: async () => {
+      const { getDiskannRegistry } = await import('../memory/diskann-registry.js');
+      const registry = getDiskannRegistry();
+      return { success: true, snapshots: registry.list() };
+    },
+  },
+  // ============================================================
+  // ADR-121 Phase 8 (CLI) — AnnRouter MCP tools (alpha.48)
+  // ============================================================
+  //
+  // Composition layer: agents declare the workload shape
+  // (corpusSize/persistent/mutable) and the router picks between
+  // HNSW / RaBitQ / DiskANN. The decision is returned to the agent
+  // so they can see what was picked + why (useful for routing
+  // explanations + cost attribution).
+  {
+    name: 'embeddings_ann_router_build',
+    description: "Build an ANN index using AnnRouter — auto-selects between HNSW / RaBitQ / DiskANN based on workload. Use when you have a corpus to index and don't want to choose between the three backings yourself — declare the workload ({corpusSize, persistent, mutable}) and the router picks. Pair with embeddings_ann_router_search to query, embeddings_ann_router_status to see what was picked. For direct DiskANN control (e.g. for known billion-scale persistent indexes), use embeddings_diskann_build instead.",
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Handle name. Must be unique per process.' },
+        workload: {
+          type: 'object',
+          properties: {
+            corpusSize: { type: 'number', description: 'Approximate corpus size.' },
+            dimension: { type: 'number' },
+            persistent: { type: 'boolean', description: 'Survive process restarts? Forces DiskANN.' },
+            mutable: { type: 'boolean', description: 'Streaming inserts/deletes after build? Prefers HNSW.' },
+            storagePath: { type: 'string', description: 'On-disk path; required when persistent=true.' },
+          },
+          required: ['corpusSize', 'dimension'],
+        },
+        entries: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { id: { type: 'string' }, vector: { type: 'array', items: { type: 'number' } } },
+            required: ['id', 'vector'],
+          },
+        },
+      },
+      required: ['name', 'workload', 'entries'],
+    },
+    handler: async (input) => {
+      const { getAnnRouterRegistry } = await import('../memory/ann-router-registry.js');
+      const registry = getAnnRouterRegistry();
+      try {
+        const result = await registry.build({
+          name: input.name as string,
+          workload: input.workload as Parameters<typeof registry.build>[0]['workload'],
+          entries: input.entries as Array<{ id: string; vector: number[] }>,
+        });
+        return { success: true, name: input.name, ...result };
+      } catch (err) {
+        return { success: false, name: input.name, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  },
+  {
+    name: 'embeddings_ann_router_search',
+    description: 'Search a named AnnRouter handle for the k nearest neighbors. Returns hits with the routing-decision-aware score (cosine sim for HNSW; L2 distance for RaBitQ/DiskANN — interpret relative to embeddings_ann_router_status). For raw DiskANN search use embeddings_diskann_search; for raw HNSW use SearchableEmbeddingCache.search directly.',
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        vector: { type: 'array', items: { type: 'number' } },
+        k: { type: 'number' },
+      },
+      required: ['name', 'vector', 'k'],
+    },
+    handler: async (input) => {
+      const { getAnnRouterRegistry } = await import('../memory/ann-router-registry.js');
+      const registry = getAnnRouterRegistry();
+      try {
+        const hits = await registry.search(input.name as string, new Float32Array(input.vector as number[]), input.k as number);
+        return { success: true, name: input.name, k: input.k, hits };
+      } catch (err) {
+        return { success: false, name: input.name, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  },
+  {
+    name: 'embeddings_ann_router_status',
+    description: 'List all AnnRouter handles, each with its decided backing, routing reason, and current count. Use to inventory routed indexes + confirm the router picked what you expected. For peer-dep family availability use embeddings_check_ruvector_sidecar.',
+    category: 'embeddings',
+    inputSchema: { type: 'object', properties: {} },
+    handler: async () => {
+      const { getAnnRouterRegistry } = await import('../memory/ann-router-registry.js');
+      const registry = getAnnRouterRegistry();
+      return { success: true, handles: registry.list() };
+    },
+  },
+  // ============================================================
+  // ADR-121 Phase 9 — one-call RAG retrieval (alpha.49 CLI)
+  // ============================================================
+  {
+    name: 'embeddings_search_text',
+    description: "Embed a text query and search a named AnnRouter handle in a single call — the standard RAG retrieval shape. Eliminates the two-call dance of `embeddings_generate` then `embeddings_ann_router_search`. Returns hits plus per-stage latency (embeddingMs + searchMs) so callers can attribute cost. Pair with embeddings_ann_router_build to build the index first. For raw vector input (no embedding step) use embeddings_ann_router_search.",
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Query text. Will be embedded inline.' },
+        name: { type: 'string', description: 'AnnRouter handle name (set by embeddings_ann_router_build).' },
+        k: { type: 'number', description: 'Number of nearest neighbors.' },
+      },
+      required: ['text', 'name', 'k'],
+    },
+    handler: async (input) => {
+      const config = loadConfig();
+      if (!config) {
+        return {
+          success: false,
+          error: 'Embeddings not initialized. Run embeddings_init first.',
+        };
+      }
+      const text = input.text as string;
+      const name = input.name as string;
+      const k = input.k as number;
+      const tv = validateText(text, 'text');
+      if (!tv.valid) return { success: false, error: tv.error };
+
+      // Stage 1 — embed the query.
+      const embedT0 = Date.now();
+      let embedding: number[];
+      try {
+        embedding = await generateRealEmbedding(text, config.dimension);
+      } catch (err) {
+        return { success: false, error: `embed failed: ${err instanceof Error ? err.message : String(err)}` };
+      }
+      const embeddingMs = Date.now() - embedT0;
+
+      // Stage 2 — search the named router handle.
+      const { getAnnRouterRegistry } = await import('../memory/ann-router-registry.js');
+      const registry = getAnnRouterRegistry();
+      const searchT0 = Date.now();
+      try {
+        const hits = await registry.search(name, new Float32Array(embedding), k);
+        const searchMs = Date.now() - searchT0;
+        return {
+          success: true,
+          name,
+          k,
+          hits,
+          latency: { embeddingMs, searchMs, totalMs: embeddingMs + searchMs },
+          embeddingDimension: embedding.length,
+        };
+      } catch (err) {
+        return {
+          success: false,
+          name,
+          error: err instanceof Error ? err.message : String(err),
+          latency: { embeddingMs, searchMs: 0 },
+        };
+      }
+    },
+  },
+  // ============================================================
+  // ADR-121 Phase 9b — batch one-call RAG (alpha.50 CLI)
+  // ============================================================
+  {
+    name: 'embeddings_search_text_batch',
+    description: "Embed N text queries and search a named AnnRouter handle for each, in a single MCP call. Standard shape for question-reformulation RAG (expand one user question into N variants, retrieve top-k for each, merge). Embeddings + searches run in parallel where the backing supports it. Returns one results entry per query in input order, plus aggregate latency. For single-query use embeddings_search_text; for raw vector input use embeddings_ann_router_search.",
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        texts: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of query texts. Order preserved in results.',
+        },
+        name: { type: 'string', description: 'AnnRouter handle name.' },
+        k: { type: 'number', description: 'Nearest neighbors per query.' },
+      },
+      required: ['texts', 'name', 'k'],
+    },
+    handler: async (input) => {
+      const config = loadConfig();
+      if (!config) {
+        return { success: false, error: 'Embeddings not initialized. Run embeddings_init first.' };
+      }
+      const texts = input.texts as string[];
+      const name = input.name as string;
+      const k = input.k as number;
+
+      if (!Array.isArray(texts) || texts.length === 0) {
+        return { success: false, error: 'texts must be a non-empty array' };
+      }
+      // Validate every text upfront so we don't half-embed before failing.
+      for (let i = 0; i < texts.length; i++) {
+        const t = texts[i];
+        if (typeof t !== 'string') {
+          return { success: false, error: `texts[${i}] is not a string` };
+        }
+      }
+
+      const { getAnnRouterRegistry } = await import('../memory/ann-router-registry.js');
+      const registry = getAnnRouterRegistry();
+
+      // Stage 1 — embed all queries in parallel.
+      const embedT0 = Date.now();
+      let embeddings: number[][];
+      try {
+        embeddings = await Promise.all(
+          texts.map(t => generateRealEmbedding(t, config.dimension)),
+        );
+      } catch (err) {
+        return {
+          success: false,
+          name,
+          error: `batch embed failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+      const embeddingMs = Date.now() - embedT0;
+
+      // Stage 2 — search each in parallel against the named handle.
+      // Per-query errors are captured into the results entry rather
+      // than aborting the whole batch — callers see which queries
+      // succeeded and which didn't.
+      const searchT0 = Date.now();
+      const results = await Promise.all(embeddings.map(async (emb, i) => {
+        try {
+          const hits = await registry.search(name, new Float32Array(emb), k);
+          return { index: i, text: texts[i], success: true, hits };
+        } catch (err) {
+          return {
+            index: i,
+            text: texts[i],
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }));
+      const searchMs = Date.now() - searchT0;
+
+      const successCount = results.filter(r => r.success).length;
+      return {
+        success: successCount === results.length,
+        name,
+        k,
+        queryCount: texts.length,
+        successCount,
+        failureCount: results.length - successCount,
+        results,
+        latency: {
+          embeddingMs,
+          searchMs,
+          totalMs: embeddingMs + searchMs,
+          avgPerQueryMs: Math.round(((embeddingMs + searchMs) / texts.length) * 100) / 100,
+        },
+        embeddingDimension: embeddings[0]?.length,
+      };
+    },
+  },
+  // ============================================================
+  // ADR-121 Phase 10 — MMR diversity rerank (alpha.51 CLI)
+  // ============================================================
+  //
+  // Plain top-k often returns near-duplicate chunks. MMR picks a
+  // diversified top-k by trading off relevance against redundancy
+  // (Carbonell & Goldstein 1998). Fetches `fetchMultiplier * k`
+  // candidates from AnnRouter, then reranks to k via mmrRerank.
+  //
+  // Pairs with embeddings_search_text (relevance only). Same caller
+  // contract — text + handle name + k — plus optional `lambda` and
+  // `fetchMultiplier`. Returns diversity stats so callers can
+  // confirm the rerank actually spread the result.
+  {
+    name: 'embeddings_search_text_diverse',
+    description: "Embed a text query, fetch a wider candidate pool from a named AnnRouter handle, and rerank with MMR (Maximal Marginal Relevance) to return a diverse top-k. Use when plain top-k tends to return near-duplicates (e.g. corpora with many paraphrased chunks). λ controls relevance/diversity tradeoff: 1.0 = same as embeddings_search_text, 0.5 = balanced (default), 0.0 = pure diversity. fetchMultiplier controls how many candidates to consider before reranking (default 5×k). Returns hits + diversification stats (averagePairwiseSimilarity — lower is more diverse). For plain (non-diversified) RAG use embeddings_search_text.",
+    category: 'embeddings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Query text. Will be embedded inline.' },
+        name: { type: 'string', description: 'AnnRouter handle name (set by embeddings_ann_router_build).' },
+        k: { type: 'number', description: 'Number of diverse nearest neighbors to return.' },
+        lambda: {
+          type: 'number',
+          description: 'Relevance/diversity tradeoff in [0,1]. 1=pure relevance, 0=pure diversity. Default 0.5.',
+        },
+        fetchMultiplier: {
+          type: 'number',
+          description: 'Candidate pool size = fetchMultiplier * k. Larger = more candidates to diversify from, more compute. Default 5.',
+        },
+      },
+      required: ['text', 'name', 'k'],
+    },
+    handler: async (input) => {
+      const config = loadConfig();
+      if (!config) {
+        return { success: false, error: 'Embeddings not initialized. Run embeddings_init first.' };
+      }
+      const text = input.text as string;
+      const name = input.name as string;
+      const k = input.k as number;
+      const lambda = typeof input.lambda === 'number' ? input.lambda : 0.5;
+      const fetchMultiplier = typeof input.fetchMultiplier === 'number' && input.fetchMultiplier >= 1
+        ? input.fetchMultiplier
+        : 5;
+      const tv = validateText(text, 'text');
+      if (!tv.valid) return { success: false, error: tv.error };
+      if (!Number.isInteger(k) || k < 1) {
+        return { success: false, error: 'k must be a positive integer' };
+      }
+
+      // Stage 1 — embed the query.
+      const embedT0 = Date.now();
+      let embedding: number[];
+      try {
+        embedding = await generateRealEmbedding(text, config.dimension);
+      } catch (err) {
+        return { success: false, error: `embed failed: ${err instanceof Error ? err.message : String(err)}` };
+      }
+      const embeddingMs = Date.now() - embedT0;
+      const queryVec = new Float32Array(embedding);
+
+      // Stage 2 — fetch a wider pool of candidates from the router.
+      const { getAnnRouterRegistry } = await import('../memory/ann-router-registry.js');
+      const registry = getAnnRouterRegistry();
+      const fetchK = Math.max(k, Math.floor(k * fetchMultiplier));
+      const searchT0 = Date.now();
+      let candidatesRaw: Array<{ id: string; score: number; vector?: Float32Array | number[]; payload?: unknown }>;
+      try {
+        candidatesRaw = await registry.search(name, queryVec, fetchK) as typeof candidatesRaw;
+      } catch (err) {
+        return {
+          success: false,
+          name,
+          error: err instanceof Error ? err.message : String(err),
+          latency: { embeddingMs, searchMs: 0, rerankMs: 0 },
+        };
+      }
+      const searchMs = Date.now() - searchT0;
+
+      // Filter to candidates that have a vector (MMR needs it).
+      // Routers that don't surface vectors (rare) degrade to
+      // plain top-k for safety rather than throwing.
+      const candidatesWithVec = candidatesRaw.filter(c => c.vector != null);
+      if (candidatesWithVec.length === 0) {
+        return {
+          success: true,
+          name,
+          k,
+          hits: candidatesRaw.slice(0, k),
+          mmr: { applied: false, reason: 'no candidate vectors available — degraded to plain top-k' },
+          latency: { embeddingMs, searchMs, rerankMs: 0, totalMs: embeddingMs + searchMs },
+        };
+      }
+
+      // Stage 3 — MMR rerank.
+      // Sub-path import bypasses the index barrel — TS resolves the
+      // mmr.d.ts directly via the './*' export condition, which
+      // sidesteps a stale-cache issue with the aggregate index.d.ts.
+      const { mmrRerank, averagePairwiseSimilarity } = await import('@claude-flow/embeddings/mmr');
+      const rerankT0 = Date.now();
+      const picked = mmrRerank(
+        candidatesWithVec.map(c => ({
+          id: c.id,
+          vector: c.vector!,
+          score: c.score,
+          payload: c.payload,
+        })),
+        queryVec,
+        { k, lambda },
+      );
+      const rerankMs = Date.now() - rerankT0;
+
+      const avgPairSim = averagePairwiseSimilarity(picked);
+
+      // Strip vectors from the response to keep stdout sane.
+      // Callers wanting the vectors can re-fetch via search.
+      const hits = picked.map(p => ({
+        id: p.id,
+        score: p.relevance,
+        mmrScore: p.mmrScore,
+        relevance: p.relevance,
+        redundancy: p.redundancy,
+        pickOrder: p.pickOrder,
+        payload: p.payload,
+      }));
+
+      return {
+        success: true,
+        name,
+        k,
+        hits,
+        mmr: {
+          applied: true,
+          lambda,
+          fetchMultiplier,
+          candidatesConsidered: candidatesWithVec.length,
+          averagePairwiseSimilarity: avgPairSim,
+        },
+        latency: {
+          embeddingMs,
+          searchMs,
+          rerankMs,
+          totalMs: embeddingMs + searchMs + rerankMs,
+        },
+        embeddingDimension: embedding.length,
+      };
+    },
+  },
 ];
