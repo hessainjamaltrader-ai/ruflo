@@ -19,7 +19,7 @@
 | M6 — Concurrency scale N=1/10/50/100 | DONE |
 | M7 — v3.7.0 vs v3.8.0 delta | DONE |
 | M8 — Real plugin enum (21 native plugins) | DONE |
-| M9 — Publish gist + release notes | PENDING (after M4 linux) |
+| M9 — Publish gist + release notes | DONE (https://gist.github.com/ruvnet/298f8c668c8859b369f91734a0e9cbbe) |
 | M10 — Additional speedups | DONE (4 speedups shipped) |
 
 ---
@@ -164,4 +164,4 @@ Full data: `docs/benchmarks/sota-matrix-linux.json`
 ## Pending
 
 - **M5:** Mode B real model (haiku-4-5, $0.10 budget) — BLOCKED (GCP ANTHROPIC_API_KEY stale)
-- **M9:** Gist publish + v3.8.0 release notes patch — M4 now done, ready to proceed
+- **M9:** DONE — gist published at https://gist.github.com/ruvnet/298f8c668c8859b369f91734a0e9cbbe — v3.8.0 release notes patched
