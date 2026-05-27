@@ -1,10 +1,12 @@
-# ADR-131 — Simulative Planning Router: Selective Depth Allocation for Agent Intelligence
+# ADR-132 — Simulative Planning Router: Selective Depth Allocation for Agent Intelligence
+
+> **Renumbered 2026-05-27**: originally filed as ADR-131 by the dream-cycle agent. ADR-131 was concurrently taken by the ToolOutputGuardrail work (#2149, merged commit `0f5b8fe7f`); this ADR was bumped to 132 to resolve the collision.
 
 **Status**: Proposed
 **Date**: 2026-05-27
 **Authors**: claude (dream-cycle agent, 2026-05-27)
-**Related**: ADR-026 (3-tier model routing), ADR-130 (graph intelligence integration), ADR-049 (AgentDB memory)
-**Dream Cycle**: Issue TBD, Gist SHA-256 `20171013681d33297870fb922e666fc4bdef7ac07f65224f1a7f918e36a4c531`
+**Related**: ADR-026 (3-tier model routing), ADR-130 (graph intelligence integration), ADR-131 (tool-output guardrail), ADR-049 (AgentDB memory)
+**Dream Cycle**: Issue #2156, Gist SHA-256 `20171013681d33297870fb922e666fc4bdef7ac07f65224f1a7f918e36a4c531`
 
 ---
 
@@ -65,7 +67,7 @@ export interface SimulativePlanResult {
   confidence: number; // 0–1
 }
 
-export async function maybeSumulatePlan(
+export async function maybeSimulatePlan(
   task: RouteContext,
   haiku: ModelClient,
   sona: SonaMemory,

@@ -57,7 +57,7 @@
 
 ## Recommended Next Steps
 
-1. **Implement `SimulativePlanningRouter` (ADR-131)** — add a selective-depth tier to ADR-026: for tasks with estimated horizon >5 steps, invoke a simulative forward pass before committing to tool calls. Target ≤30ms overhead, ≥20% token reduction on multi-step tasks. Architecture decision required (changes routing contract in `@claude-flow/hooks` route hook).
+1. **Implement `SimulativePlanningRouter` (ADR-132)** — add a selective-depth tier to ADR-026: for tasks with estimated horizon >5 steps, invoke a simulative forward pass before committing to tool calls. Target ≤30ms overhead, ≥20% token reduction on multi-step tasks. Architecture decision required (changes routing contract in `@claude-flow/hooks` route hook). _(Originally filed as ADR-131; renumbered after collision with ADR-131-tool-output-guardrail merged via #2149.)_
 
 2. **Add skill lifecycle to SONA** — extend the SONA pattern store with MUSE-Autoskill evaluation gates: skills failing 3× consecutive invocations enter quarantine; 10× successes promote to `high-trust` with preloading. Extend `hooks post-task` worker. Implementation-level — no new ADR.
 
