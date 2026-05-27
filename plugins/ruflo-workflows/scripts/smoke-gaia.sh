@@ -136,5 +136,38 @@ step "14. gaia-bench CLI backend referenced in commands"
 grep -q 'gaia-bench' "$ROOT/commands/gaia-run.md" \
   && ok || bad "gaia-bench CLI not referenced in gaia-run.md"
 
+# ── sync-up: 6 tools documented ──────────────────────────────────────────────
+
+step "15. all 6 expected tools documented in gaia-run.md"
+miss=""
+for tool in web_search file_read web_browse image_describe python_exec grounded_query; do
+  grep -q "$tool" "$ROOT/commands/gaia-run.md" || miss="$miss $tool"
+done
+[[ -z "$miss" ]] && ok || bad "missing tools in gaia-run.md:$miss"
+
+# ── sync-up: new flags documented ────────────────────────────────────────────
+
+step "16. all 4 new flags documented in gaia-run.md"
+miss=""
+for flag in voting-attempts hardness-routing planning-interval max-turns; do
+  grep -q "$flag" "$ROOT/commands/gaia-run.md" || miss="$miss --$flag"
+done
+[[ -z "$miss" ]] && ok || bad "missing flags in gaia-run.md:$miss"
+
+# ── sync-up: new failure modes in debugging skill ─────────────────────────────
+
+step "17. new failure modes documented in gaia-debugging skill"
+miss=""
+grep -qi "grounded_query" "$ROOT/skills/gaia-debugging/SKILL.md" || miss="$miss [grounded_query]"
+grep -qiE "empty.*tool|ET.*empty|empty.*web_search" "$ROOT/skills/gaia-debugging/SKILL.md" || miss="$miss [empty-tool-results]"
+grep -qiE "replan|RP.*replan|planning checkpoint" "$ROOT/skills/gaia-debugging/SKILL.md" || miss="$miss [replan-stall]"
+[[ -z "$miss" ]] && ok || bad "missing failure modes in debugging skill:$miss"
+
+# ── sync-up: HAL open-source reference ───────────────────────────────────────
+
+step "18. HAL open-source (princeton-pli/hal-harness) referenced in architecture skill"
+grep -qE 'princeton-pli|hal-harness|smolagents' "$ROOT/skills/gaia-architecture-comparison/SKILL.md" \
+  && ok || bad "HAL open-source reference missing from architecture comparison skill"
+
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1
