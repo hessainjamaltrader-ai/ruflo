@@ -15,9 +15,14 @@ export function runTournament(game: GameSpec, roster: Strategy[], opts: Tourname
   const names = roster.map((s) => s.name);
   const n = roster.length;
 
+  // Self-matches (i === j) are skipped when `includeSelf=false` — they're
+  // also excluded from `meanVsField` below, so computing them would just be
+  // wasted work. The diagonal stays at 0 in that mode (consumers can rely
+  // on `includeSelf` to interpret it).
   const matrix: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
+      if (!includeSelf && i === j) continue;
       matrix[i][j] = meanPayoff(game, roster[i], roster[j], rounds, seed);
     }
   }

@@ -101,17 +101,27 @@ export class FileRunStore implements RunStore {
  * Shape a run for AgentDB persistence via `mcp__claude-flow__memory_store`.
  * The command layer calls the MCP tool with this payload so runs become semantically
  * searchable ("tournaments where grim dominated") and feed the RuVector data layer later.
+ *
+ * `kind`, `game`, and `seed` are lifted to top-level fields (parallel to `tags`)
+ * so RuVector ADR-197 indexers can filter without re-parsing `value`. `value`
+ * itself still carries the full summary for body-level semantic search.
  */
 export function agentdbRecord(record: RunRecord): {
   namespace: string;
   key: string;
+  kind: RunKind;
+  game: string;
+  seed: number;
   value: string;
   tags: string[];
 } {
   return {
     namespace: 'arena',
     key: record.runId,
-    value: JSON.stringify({ kind: record.kind, game: record.game, seed: record.seed, ...record.summary }),
+    kind: record.kind,
+    game: record.game,
+    seed: record.seed,
+    value: JSON.stringify(record.summary),
     tags: ['ruliology', 'competition', record.kind, record.game],
   };
 }

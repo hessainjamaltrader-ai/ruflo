@@ -195,9 +195,16 @@ export function createArenaTools(store: RunStore): MCPTool[] {
             startStates: args.startStates,
           });
           const payoffs = r.curve.map((c) => c.payoffA);
+          // Single-pass scan avoids Math.min/max(...spread) — the spread
+          // form hits V8's argument-count limit (~16k) for long curves.
+          let minP = Infinity, maxP = -Infinity;
+          for (const p of payoffs) {
+            if (p < minP) minP = p;
+            if (p > maxP) maxP = p;
+          }
           const summary = {
             generations: r.generations,
-            payoffRange: [Math.min(...payoffs), Math.max(...payoffs)] as [number, number],
+            payoffRange: [minP, maxP] as [number, number],
             finalPayoffA: payoffs[payoffs.length - 1],
           };
           const result = { game: game.name, ...summary, sparkline: sparkline(payoffs) };
@@ -243,7 +250,14 @@ export function createArenaTools(store: RunStore): MCPTool[] {
   ];
 }
 
-/** Default tool set, persisting to `.ruflo/arena/` on disk. */
+/**
+ * Default tool set, persisting to `.ruflo/arena/` under the process CWD.
+ *
+ * For hosts that need to control the on-disk location (test sandboxes, multi-tenant
+ * runtimes, in-memory only), prefer the {@link createArenaTools} factory with an
+ * explicit {@link RunStore} — e.g. `createArenaTools(new InMemoryRunStore())` for
+ * tests, or `createArenaTools(new FileRunStore('/custom/path'))` for relocation.
+ */
 export const arenaTools: MCPTool[] = createArenaTools(new FileRunStore());
 
 // Re-export Zod schemas so hosts can introspect/validate independently.

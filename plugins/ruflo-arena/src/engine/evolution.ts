@@ -67,19 +67,25 @@ export function coevolve(game: GameSpec, opts: CoevolveOptions = {}): Coevolutio
 
   let a = randomFSM(game, rng, startStates, 'A');
   let b = randomFSM(game, rng, startStates, 'B');
-  const h2hA = () => meanPayoff(game, a, b, rounds, evalSeed);
 
-  const curve: CoevolutionResult['curve'] = [{ gen: 0, side: 'init', payoffA: h2hA() }];
+  // Cache the current (A vs B) baseline so each generation runs ONE match
+  // (the candidate's), not three (candidate + old baseline + curve sample).
+  // Numerically identical — the seed is fixed — but ~3x fewer matches per gen.
+  let baseline = meanPayoff(game, a, b, rounds, evalSeed);
+
+  const curve: CoevolutionResult['curve'] = [{ gen: 0, side: 'init', payoffA: baseline }];
   for (let g = 1; g <= generations; g++) {
     if (g % 2 === 1) {
       const cand = mutate(a, game, rng);
-      if (meanPayoff(game, cand, b, rounds, evalSeed) >= meanPayoff(game, a, b, rounds, evalSeed)) a = cand;
+      const candFit = meanPayoff(game, cand, b, rounds, evalSeed);
+      if (candFit >= baseline) { a = cand; baseline = candFit; }
     } else {
       const cand = mutate(b, game, rng);
-      // B wants to minimise A's payoff (equivalently maximise its own in a 2-player game)
-      if (meanPayoff(game, a, cand, rounds, evalSeed) <= meanPayoff(game, a, b, rounds, evalSeed)) b = cand;
+      // B wants to MINIMISE A's payoff (zero-sum in a 2-player setting).
+      const candFit = meanPayoff(game, a, cand, rounds, evalSeed);
+      if (candFit <= baseline) { b = cand; baseline = candFit; }
     }
-    curve.push({ gen: g, side: g % 2 === 1 ? 'A' : 'B', payoffA: h2hA() });
+    curve.push({ gen: g, side: g % 2 === 1 ? 'A' : 'B', payoffA: baseline });
   }
   return { a, b, curve, generations };
 }
