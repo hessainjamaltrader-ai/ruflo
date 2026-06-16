@@ -142,6 +142,33 @@ jobs:
           cd ../../..
           node plugins/ruflo-metaharness/scripts/test-mcp-tools.mjs
 
+      - name: Regression gate — iter-12 dispatch overhead < 500ns (iter 24/25)
+        # Micro-benchmark proving the iter-12 "zero default-path overhead"
+        # claim with measured numbers. Threshold 500ns chosen as ~3.5x
+        # headroom over the iter-24 baseline of ~147ns on Apple Silicon
+        # /Node 22. Fails the PR if someone accidentally inflates the
+        # route() hot path on the default path.
+        run: |
+          node plugins/ruflo-metaharness/scripts/bench-recordpair-overhead.mjs \
+            --max-overhead-ns 500 --format json > /tmp/bench-overhead.json
+          # Pretty-print the verdict
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('/tmp/bench-overhead.json'));
+            const baseline = r.results.find(x => x.label.startsWith('baseline'));
+            const env = r.results.find(x => x.label.includes('FLAG OFF'));
+            const overhead = env.meanNsPerCall - baseline.meanNsPerCall;
+            console.log('Measured overhead:', Math.round(overhead) + 'ns per route() call');
+            console.log('Threshold: 500ns. Headroom: ' + Math.round(500 - overhead) + 'ns');
+          "
+
+      - name: Upload benchmark artifact (90-day retention for trend tracking)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metaharness-bench-overhead-${{ github.run_id }}
+          path: /tmp/bench-overhead.json
+          retention-days: 90
+
   eject-dryrun:
     # ADR-150 Phase 2 — verify `ruflo eject` dry-run produces a valid
     # plan against the ruflo repo itself, AND that the safety gate

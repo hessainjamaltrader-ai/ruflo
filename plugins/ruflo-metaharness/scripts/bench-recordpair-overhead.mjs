@@ -24,11 +24,21 @@
 import { performance } from 'node:perf_hooks';
 
 const ARGS = (() => {
-  const a = { iters: 1_000_000, format: 'table' };
+  const a = {
+    iters: 1_000_000,
+    format: 'table',
+    // iter 25 — CI regression gate. When --max-overhead-ns N is set,
+    // exit 1 if the measured iter-12 default-path overhead exceeds N
+    // nanoseconds per call. Default threshold 500ns chosen as ~3.5×
+    // headroom over the iter-24 measured baseline of ~147ns on Apple
+    // Silicon / Node 22.
+    maxOverheadNs: null,
+  };
   for (let i = 2; i < process.argv.length; i++) {
     const v = process.argv[i];
     if (v === '--iters') a.iters = parseInt(process.argv[++i], 10);
     else if (v === '--format') a.format = process.argv[++i];
+    else if (v === '--max-overhead-ns') a.maxOverheadNs = parseFloat(process.argv[++i]);
   }
   return a;
 })();
@@ -148,6 +158,23 @@ function main() {
     console.log(`✓ Overhead < 1μs is well within tolerable bounds.`);
   } else {
     console.log(`⚠ Overhead ${Math.round(overhead)}ns is higher than expected; investigate engine optimization.`);
+  }
+
+  // CI regression gate (iter 25).
+  if (ARGS.maxOverheadNs !== null) {
+    if (!isFinite(ARGS.maxOverheadNs) || ARGS.maxOverheadNs <= 0) {
+      console.error('bench-recordpair-overhead: --max-overhead-ns must be a positive number');
+      process.exit(2);
+    }
+    console.log('');
+    if (overhead > ARGS.maxOverheadNs) {
+      console.log(`⚠ **REGRESSION**: measured ${Math.round(overhead)}ns > threshold ${ARGS.maxOverheadNs}ns`);
+      console.log(`  The iter-12 dispatch wiring may have grown beyond the env-flag check.`);
+      console.log(`  Inspect v3/@claude-flow/cli/src/ruvector/model-router.ts route() for new work in the default path.`);
+      process.exit(1);
+    } else {
+      console.log(`✓ Within regression threshold (${Math.round(overhead)}ns ≤ ${ARGS.maxOverheadNs}ns).`);
+    }
   }
 }
 

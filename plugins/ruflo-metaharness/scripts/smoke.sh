@@ -170,7 +170,7 @@ if (!od.metaharness) { console.error('missing metaharness in optionalDependencie
 if (j.dependencies && j.dependencies.metaharness) { console.error('metaharness leaked into dependencies'); process.exit(1); }
 " 2>/dev/null && ok || bad "ruflo wrapper missing metaharness optionalDep"
 
-step "17p. bench-recordpair-overhead — measures iter-12 default-path cost (iter 24)"
+step "17p. bench-recordpair-overhead — measures + gates iter-12 default-path cost (iter 24/25)"
 F="$ROOT/scripts/bench-recordpair-overhead.mjs"
 miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
@@ -184,6 +184,13 @@ grep -q "FLAG ON" "$F" || miss="$miss no-on-variant"
 grep -q "performance.now" "$F" || miss="$miss no-perf-now"
 # Reports per-call overhead in nanoseconds (the meaningful unit)
 grep -q "meanNsPerCall\|ns per route" "$F" || miss="$miss no-ns-reporting"
+# iter 25 — CI regression gate (exits 1 above threshold)
+grep -q "max-overhead-ns" "$F" || miss="$miss no-gate-flag"
+grep -q "REGRESSION" "$F" || miss="$miss no-regression-message"
+grep -q "process.exit(1)" "$F" || miss="$miss no-fail-closed"
+# Wired into the CI workflow with a 500ns threshold
+CI="$ROOT/../../.github/workflows/metaharness-ci.yml"
+grep -q "max-overhead-ns 500" "$CI" 2>/dev/null || miss="$miss not-wired-to-ci"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17o. test-mcp-tools runtime contract test (ADR-150 — iter 23)"
