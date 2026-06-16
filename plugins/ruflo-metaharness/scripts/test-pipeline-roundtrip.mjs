@@ -118,6 +118,39 @@ try {
   assert(Array.isArray(audit.fingerprint.genome?.agent_topology),
     'fingerprint.genome has agent_topology array');
 
+  // iter 49 — schema contracts beyond similarity (the OTHER class of
+  // silent drift). audit-trend reads specific upstream fields:
+  //   - composite.worst                            (severity rollup)
+  //   - components.threatModel.json.worst          (audit-trend.mjs:96-100)
+  //   - components.mcpScan.json.findings           (audit-trend.mjs:124-127)
+  // If upstream renames any of these, audit-trend silently breaks.
+  // Gating them here forces a CI failure on the next PR after upstream
+  // schema drift, instead of months later when someone notices the
+  // severity verdict has been wrong all along.
+  assert(typeof audit.composite?.worst === 'string',
+    'iter 49 — audit.composite.worst is a string');
+  assert(['clean', 'low', 'medium', 'high'].includes(audit.composite.worst),
+    `iter 49 — composite.worst in valid severity vocab (got ${audit.composite.worst})`);
+  // threatModel.json.worst is the upstream field audit-trend reads
+  if (audit.components?.threatModel && !audit.components.threatModel.degraded) {
+    assert(typeof audit.components.threatModel.json?.worst === 'string',
+      'iter 49 — components.threatModel.json.worst is a string (audit-trend dep)');
+  }
+  // mcp-scan.mjs currently emits {rawStdout, durationMs, alert} —
+  // no structured `findings` array. audit-trend.mjs reads
+  // `json.findings` (guarded with Array.isArray fallback to []) so it
+  // doesn't crash, but the introduced/cleared logic is effectively
+  // a no-op on real output. iter 49 documents this gap rather than
+  // asserting a contract that doesn't yet hold. If a future iter
+  // promotes mcp-scan.mjs to emit structured findings, this assertion
+  // should become a real type-check.
+  if (audit.components?.mcpScan?.json?.findings !== undefined) {
+    assert(Array.isArray(audit.components.mcpScan.json.findings),
+      'iter 49 — IF mcpScan.json.findings exists THEN it must be an array');
+  } else {
+    console.log(`  ⊘ mcpScan.json.findings absent (mcp-scan.mjs currently text-only — known iter-49 gap)`);
+  }
+
   // ──────────────────────────────────────────────────────────────
   // STAGE 2: persist the audit record as both baseline and current
   // ──────────────────────────────────────────────────────────────
@@ -176,6 +209,30 @@ try {
   ]);
   assert(alertRun.status === 1,
     `alert at threshold 1.01 fires on self-match (exit 1, got ${alertRun.status})`);
+
+  // ──────────────────────────────────────────────────────────────
+  // STAGE 6 (iter 49) — non-similarity schema contracts in the trend
+  //
+  // audit-trend reads `composite.worst`, `components.threatModel.json.worst`,
+  // and `components.mcpScan.json.findings`. The trend output's
+  // delta.worst.verdict on a self-match must be 'unchanged'. If upstream
+  // renames any of these fields, the verdict silently becomes 'missing'
+  // or undefined — this assertion catches that BEFORE shipping.
+  // ──────────────────────────────────────────────────────────────
+  console.log('\nStage 6 — non-similarity schema contracts (iter 49)');
+  assert(typeof trend.delta?.worst === 'object',
+    'trend exposes delta.worst (severity-rollup)');
+  assert(trend.delta.worst.verdict === 'unchanged',
+    `self-roundtrip severity-verdict === unchanged (got ${trend.delta.worst.verdict})`);
+  assert(trend.delta.worst.baseline === trend.delta.worst.current,
+    'self-roundtrip baseline === current severity');
+  assert(trend.delta.worst.rankDelta === 0,
+    `self-roundtrip rankDelta === 0 (got ${trend.delta.worst.rankDelta})`);
+  // Findings arrays: introduced/cleared must both be 0 on self-match
+  assert(trend.delta?.findings?.introducedCount === 0,
+    `self-roundtrip introducedCount === 0 (got ${trend.delta?.findings?.introducedCount})`);
+  assert(trend.delta?.findings?.clearedCount === 0,
+    `self-roundtrip clearedCount === 0 (got ${trend.delta?.findings?.clearedCount})`);
 
 } finally {
   try { rmSync(tmp, { recursive: true, force: true }); } catch { /* ignore */ }

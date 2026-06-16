@@ -191,6 +191,25 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z12. roundtrip covers non-similarity schemas + flags mcp-scan gap (iter 49)"
+miss=""
+F="$ROOT/scripts/test-pipeline-roundtrip.mjs"
+# New stage 6 present
+grep -q "Stage 6 — non-similarity schema contracts" "$F" 2>/dev/null || miss="$miss no-stage-6"
+# threat-model contract gated
+grep -q "components.threatModel.json.worst is a string" "$F" 2>/dev/null || miss="$miss no-threat-model-contract"
+# composite worst rollup contract
+grep -q "audit.composite.worst is a string" "$F" 2>/dev/null || miss="$miss no-composite-contract"
+grep -q "composite.worst in valid severity vocab" "$F" 2>/dev/null || miss="$miss no-severity-vocab-check"
+# Self-match severity-verdict assertion
+grep -q "self-roundtrip severity-verdict === unchanged" "$F" 2>/dev/null || miss="$miss no-severity-self-assert"
+# Documents the mcp-scan gap rather than failing on it
+grep -q "mcp-scan.mjs currently text-only" "$F" 2>/dev/null || miss="$miss no-mcp-scan-gap-note"
+# Findings counters
+grep -q "introducedCount === 0" "$F" 2>/dev/null || miss="$miss no-introduced-check"
+grep -q "clearedCount === 0" "$F" 2>/dev/null || miss="$miss no-cleared-check"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z11. CI gate runs roundtrip with real metaharness installed (iter 48)"
 miss=""
 F="$ROOT/../../.github/workflows/metaharness-ci.yml"
