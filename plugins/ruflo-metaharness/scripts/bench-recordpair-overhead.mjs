@@ -84,11 +84,16 @@ function main() {
     process.exit(2);
   }
 
-  console.log(`# bench-recordpair-overhead`);
-  console.log('');
-  console.log(`Iterations: ${iters.toLocaleString()}`);
-  console.log(`Platform: ${process.platform} ${process.arch}, Node ${process.version}`);
-  console.log('');
+  // iter 137 — guard the markdown header behind table-format so
+  // --format json emits pure JSON (consumed by CI's JSON.parse).
+  // Same fix-class as bench-similarity's iter 87 fix.
+  if (ARGS.format !== 'json') {
+    console.log(`# bench-recordpair-overhead`);
+    console.log('');
+    console.log(`Iterations: ${iters.toLocaleString()}`);
+    console.log(`Platform: ${process.platform} ${process.arch}, Node ${process.version}`);
+    console.log('');
+  }
 
   // Baseline — no-op
   const baseline = bench('baseline (no-op)', () => {}, iters);
