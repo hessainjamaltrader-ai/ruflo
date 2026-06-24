@@ -70,5 +70,7 @@ All ADRs are located in [`/v3/implementation/adrs/`](../../implementation/adrs/)
 
 ---
 
-**Last Updated:** 2026-01-14
-**CLI Version:** @claude-flow/cli@3.0.0-alpha.104
+| [ADR-167](ADR-167-dream-cycle-swarm-trust-weighted-consensus.md) | Trust-Weighted Consensus for Swarm Coordination | Proposed |
+
+**Last Updated:** 2026-06-24
+**CLI Version:** @claude-flow/cli@3.6.10
