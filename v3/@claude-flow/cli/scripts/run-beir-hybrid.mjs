@@ -46,8 +46,9 @@ const BASELINES_BY_DATASET = {
 };
 // Iter 3: dataset-specific RRF weights for symmetric + dense-favored regimes (arguana: dense 1.6x stronger than BM25).
 // Iter 4: nfcorpus medical IR — downweight BM25 (0.7) to favor dense semantics over lexical noise.
+// Iter 26: arguana — align with validated nfcorpus/scifact recipe (1.0 dense, 0.2 BM25).
 const DATASET_RRF_WEIGHTS = {
-  arguana: { dense: 1.5, bm25: 1.0 },  // symmetric retrieval favors dense; boost it over weak BM25
+  arguana: { dense: 1.0, bm25: 0.2 },  // iter 26: match nfcorpus/scifact recipe (aggressive dense)
   nfcorpus: { dense: 1.0, bm25: 0.0 }, // iter 14: pure dense fusion (0.2→0.0) RRF with single system + minMax norm preserved
   scifact: { dense: 1.0, bm25: 0.0 },  // iter 20: test nfcorpus winner recipe on scifact (0.2→0.0 pure dense)
 };
