@@ -17,9 +17,9 @@ if [[ "$v" != "0.2.0" ]]; then bad "expected 0.2.0, got '$v'"; else
   [[ -z "$miss" ]] && ok || bad "missing keywords:$miss"
 fi
 
-step "2. both skills + agent + command present with valid frontmatter"
+step "2. all skills + agent + command present with valid frontmatter"
 miss=""
-for s in tdd-workflow test-gaps; do
+for s in tdd-workflow test-gaps tdd-repair; do
   f="$ROOT/skills/$s/SKILL.md"
   [[ -f "$f" ]] || { miss="$miss missing-$s"; continue; }
   for k in 'name:' 'description:' 'allowed-tools:'; do
