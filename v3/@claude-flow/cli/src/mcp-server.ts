@@ -487,20 +487,31 @@ export class MCPServerManager extends EventEmitter {
       process.exit(0);
     });
 
-    // Handle process termination
-    process.on('SIGINT', () => {
+    // Handle process termination — snapshot WASM state before exit
+    const snapshotWasmBeforeExit = async (signal: string) => {
       console.error(
-        `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${sessionId}) Received SIGINT, shutting down...`
+        `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${sessionId}) Received ${signal}, snapshotting WASM...`
       );
+      try {
+        const { hnswRouters, sonaInstances, loraInstances } = await import('./mcp-tools/ruvllm-tools.js');
+        const snap: Record<string, any> = { hnsw: {}, sona: {}, lora: {}, savedAt: new Date().toISOString() };
+        for (const [id, r] of hnswRouters) snap.hnsw[id] = (r as any).toJson();
+        for (const [id, s] of sonaInstances) snap.sona[id] = (s as any).toJson();
+        for (const [id, l] of loraInstances) snap.lora[id] = (l as any).toJson();
+        const dir = join(os.homedir(), '.claude-flow', 'wasm');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(join(dir, 'snapshot.json'), JSON.stringify(snap));
+        console.error(
+          `[${new Date().toISOString()}] INFO [claude-flow-mcp] Snapshot saved: ${Object.keys(snap.hnsw).length} HNSW, ${Object.keys(snap.sona).length} SONA, ${Object.keys(snap.lora).length} LoRA`
+        );
+      } catch (e: any) {
+        console.error(`[${new Date().toISOString()}] WARN [claude-flow-mcp] Snapshot failed: ${e.message}`);
+      }
       process.exit(0);
-    });
+    };
 
-    process.on('SIGTERM', () => {
-      console.error(
-        `[${new Date().toISOString()}] INFO [claude-flow-mcp] (${sessionId}) Received SIGTERM, shutting down...`
-      );
-      process.exit(0);
-    });
+    process.on('SIGINT', () => snapshotWasmBeforeExit('SIGINT'));
+    process.on('SIGTERM', () => snapshotWasmBeforeExit('SIGTERM'));
 
     // Mark as ready immediately for stdio
     this.emit('ready');

@@ -123,6 +123,19 @@ export interface AnthropicCallResult {
  * don't need to know which provider answered.
  */
 export async function callAnthropicMessages(input: AnthropicCallInput): Promise<AnthropicCallResult> {
+  // Load env vars from claude-flow config.json if not already in process.env
+  try {
+    const configPath = join(process.env.HOME || process.env.USERPROFILE || '~', '.claude-flow', 'config.json');
+    if (existsSync(configPath)) {
+      const cfg = JSON.parse(readFileSync(configPath, 'utf-8'));
+      const entries = (cfg as any).values || cfg;
+      for (const [k, v] of Object.entries(entries as Record<string, unknown>)) {
+        if (k.startsWith('env.') && v && !(process.env as any)[k.slice(4)]) {
+          (process.env as any)[k.slice(4)] = v;
+        }
+      }
+    }
+  } catch (_) { /* ignore */ }
   const explicitProvider = (process.env.RUFLO_PROVIDER || '').toLowerCase();
   const ollamaKey = process.env.OLLAMA_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -153,8 +166,9 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   if (useDeepSeek && deepseekKey) {
     return callOpenAICompat({
       ...input,
+      model: process.env.DEEPSEEK_DEFAULT_MODEL || 'deepseek-chat',
       apiKey: deepseekKey,
-      baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
+      baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
       providerLabel: 'deepseek',
       defaultModel: process.env.DEEPSEEK_DEFAULT_MODEL || 'deepseek-chat',
     });

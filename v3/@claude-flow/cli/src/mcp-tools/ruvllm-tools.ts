@@ -8,6 +8,9 @@
 import type { MCPTool } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
 import type { ChatMessage } from '../ruvector/ruvllm-wasm.js';
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 // #2086 — every ruvllm_* MCP handler that touches the WASM runtime calls
 // this. The downstream `createSonaInstant`/`createMicroLora`/`createHnswRouter`
@@ -322,6 +325,84 @@ export const ruvllmWasmTools: MCPTool[] = [
       }
     },
   },
+  {
+    name: 'ruvllm_snapshot',
+    description: 'Save all WASM engine state (HNSW, SONA, MicroLoRA) to disk for persistence across restarts. Returns snapshot path and engine counts.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    handler: async () => {
+      try {
+        await loadRuvllmWasm();
+        const snap: Record<string, any> = { hnsw: {}, sona: {}, lora: {}, savedAt: new Date().toISOString() };
+        for (const [id, router] of hnswRouters) snap.hnsw[id] = router.toJson();
+        for (const [id, sona] of sonaInstances) snap.sona[id] = sona.toJson();
+        for (const [id, lora] of loraInstances) snap.lora[id] = lora.toJson();
+        const dir = join(homedir(), '.claude-flow', 'wasm');
+        mkdirSync(dir, { recursive: true });
+        const snapPath = join(dir, 'snapshot.json');
+        writeFileSync(snapPath, JSON.stringify(snap));
+        return { content: [{ type: 'text', text: JSON.stringify({ success: true, path: snapPath, engines: { hnsw: Object.keys(snap.hnsw).length, sona: Object.keys(snap.sona).length, lora: Object.keys(snap.lora).length } }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: String(err) }) }], isError: true };
+      }
+    },
+  },
+  {
+    name: 'ruvllm_restore',
+    description: 'Restore WASM engine state from a previous snapshot. Called automatically on first tool use after restart.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    handler: async () => {
+      try {
+        const mod = await loadRuvllmWasm();
+        const snapPath = join(homedir(), '.claude-flow', 'wasm', 'snapshot.json');
+        if (!existsSync(snapPath)) {
+          return { content: [{ type: 'text', text: JSON.stringify({ restored: false, reason: 'no snapshot found' }) }] };
+        }
+        const snap = JSON.parse(readFileSync(snapPath, 'utf-8'));
+        const restored = { hnsw: 0, sona: 0, lora: 0 };
+        const wasmMod = await import('@ruvector/ruvllm-wasm');
+        for (const [id, json] of Object.entries(snap.hnsw || {})) {
+          const router = (wasmMod as any).HnswRouterWasm.fromJson(json as string);
+          let count = router.patternCount?.() ?? 0;
+          hnswRouters.set(id, {
+            addPattern(p: any) { const md = JSON.stringify(p.metadata ?? {}); const ok = router.addPattern(p.embedding, p.name, md); if (ok) count++; return ok; },
+            route(q: any, k = 3) { const raw = router.route(q, k); return Array.from(raw).map((r: any) => ({ name: r.name ?? r.pattern_name ?? '', score: r.score ?? r.distance ?? 0, metadata: r.metadata ? (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata) : undefined })); },
+            clear() { router.clear(); count = 0; },
+            patternCount() { return count; },
+            toJson() { return router.toJson(); },
+          } as any);
+          restored.hnsw++;
+        }
+        for (const [id, json] of Object.entries(snap.sona || {})) {
+          const sona = (wasmMod as any).SonaInstantWasm.fromJson(json as string);
+          sonaInstances.set(id, {
+            adapt(q: number) { sona.instantAdapt(q); },
+            recordPattern(e: any, s: boolean) { sona.recordPattern(e, s); },
+            suggestAction(c: any) { return sona.suggestAction(c); },
+            stats() { return sona.toJson(); },
+            reset() { sona.reset(); },
+            toJson() { return sona.toJson(); },
+          } as any);
+          restored.sona++;
+        }
+        for (const [id, json] of Object.entries(snap.lora || {})) {
+          const lora = (wasmMod as any).MicroLoraWasm.fromJson(json as string);
+          loraInstances.set(id, {
+            apply(i: any) { return lora.apply(i); },
+            adapt(q: number, lr = 0.01, s = true) { const fb = new (wasmMod as any).AdaptFeedbackWasm(); fb.quality = q; fb.learningRate = lr; try { fb.success = s; } catch {} lora.adapt(new Float32Array(768), fb); lora.applyUpdates(lr); },
+            applyUpdates(lr = 0.01) { lora.applyUpdates(lr); },
+            stats() { return lora.toJson(); },
+            reset() { lora.reset(); },
+            toJson() { return lora.toJson(); },
+            pendingUpdates() { return lora.pendingUpdates(); },
+          } as any);
+          restored.lora++;
+        }
+        return { content: [{ type: 'text', text: JSON.stringify({ restored: true, engines: restored, snapshotAge: snap.savedAt }) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: String(err) }) }], isError: true };
+      }
+    },
+  },
 ];
 
 // ── Instance Registries ──────────────────────────────────────
@@ -329,3 +410,61 @@ export const ruvllmWasmTools: MCPTool[] = [
 const hnswRouters = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createHnswRouter>>>();
 const sonaInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createSonaInstant>>>();
 const loraInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createMicroLora>>>();
+
+export { hnswRouters, sonaInstances, loraInstances };
+
+// ── Auto-Restore on Startup ──────────────────────────────────
+let _autoRestored = false;
+async function autoRestoreIfNeeded() {
+  if (_autoRestored) return;
+  _autoRestored = true;
+  const snapPath = join(homedir(), '.claude-flow', 'wasm', 'snapshot.json');
+  if (!existsSync(snapPath)) return;
+  try {
+    const mod = await loadRuvllmWasmModule();
+    await mod.initRuvllmWasm();
+    const wasmMod = await import('@ruvector/ruvllm-wasm');
+    const snap = JSON.parse(readFileSync(snapPath, 'utf-8'));
+    for (const [id, json] of Object.entries(snap.hnsw || {})) {
+      const router = (wasmMod as any).HnswRouterWasm.fromJson(json as string);
+      let count = router.patternCount?.() ?? 0;
+      hnswRouters.set(id, {
+        addPattern(p: any) { const md = JSON.stringify(p.metadata ?? {}); const ok = router.addPattern(p.embedding, p.name, md); if (ok) count++; return ok; },
+        route(q: any, k = 3) { const raw = router.route(q, k); return Array.from(raw).map((r: any) => ({ name: r.name ?? r.pattern_name ?? '', score: r.score ?? r.distance ?? 0, metadata: r.metadata ? (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata) : undefined })); },
+        clear() { router.clear(); count = 0; },
+        patternCount() { return count; },
+        toJson() { return router.toJson(); },
+      } as any);
+    }
+    for (const [id, json] of Object.entries(snap.sona || {})) {
+      const sona = (wasmMod as any).SonaInstantWasm.fromJson(json as string);
+      sonaInstances.set(id, {
+        adapt(q: number) { sona.instantAdapt(q); },
+        recordPattern(e: any, s: boolean) { sona.recordPattern(e, s); },
+        suggestAction(c: any) { return sona.suggestAction(c); },
+        stats() { return sona.toJson(); },
+        reset() { sona.reset(); },
+        toJson() { return sona.toJson(); },
+      } as any);
+    }
+    for (const [id, json] of Object.entries(snap.lora || {})) {
+      const lora = (wasmMod as any).MicroLoraWasm.fromJson(json as string);
+      loraInstances.set(id, {
+        apply(i: any) { return lora.apply(i); },
+        adapt(q: number, lr = 0.01, s = true) { const fb = new (wasmMod as any).AdaptFeedbackWasm(); fb.quality = q; fb.learningRate = lr; try { fb.success = s; } catch {} lora.adapt(new Float32Array(768), fb); lora.applyUpdates(lr); },
+        applyUpdates(lr = 0.01) { lora.applyUpdates(lr); },
+        stats() { return lora.toJson(); },
+        reset() { lora.reset(); },
+        toJson() { return lora.toJson(); },
+        pendingUpdates() { return lora.pendingUpdates(); },
+      } as any);
+    }
+  } catch (_) { /* snapshot corrupt or missing — fresh start */ }
+}
+
+// Wrap loadRuvllmWasm to auto-restore before first real use
+const _origLoadRuvllmWasm = loadRuvllmWasm;
+loadRuvllmWasm = async function loadRuvllmWasm() {
+  await autoRestoreIfNeeded();
+  return _origLoadRuvllmWasm();
+};
