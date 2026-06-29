@@ -20,6 +20,7 @@ export type LLMProvider =
   | 'ruvector'
   | 'openrouter'
   | 'litellm'
+  | 'deepseek'
   | 'custom';
 
 export type LLMModel =
@@ -56,6 +57,9 @@ export type LLMModel =
   | 'codellama'
   | 'phi-4'
   | 'deepseek-coder'
+  // DeepSeek Models
+  | 'deepseek-chat'
+  | 'deepseek-reasoner'
   // Generic
   | 'custom-model'
   | string;

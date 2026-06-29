@@ -38,7 +38,7 @@ export interface AgentRecord {
    */
   modelId?: string;
   /** ADR-148 phase 2 — execution provider hint. */
-  provider?: 'anthropic' | 'openrouter';
+  provider?: 'anthropic' | 'openrouter' | 'deepseek';
   /** ADR-148 phase 2 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
   lastResult?: Record<string, unknown>;
@@ -133,10 +133,13 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   // when no Anthropic key is available (same precedence as the Ollama
   // branch above).
   const openrouterKey = process.env.OPENROUTER_API_KEY;
+  const deepseekKey = process.env.DEEPSEEK_API_KEY;
   const useOpenRouter =
     explicitProvider === 'openrouter' || (!anthropicKey && !!openrouterKey);
+  const useDeepSeek =
+    explicitProvider === 'deepseek' || (!anthropicKey && !!deepseekKey && !openrouterKey);
   const useOllama =
-    explicitProvider === 'ollama' || (!anthropicKey && !!ollamaKey && !openrouterKey);
+    explicitProvider === 'ollama' || (!anthropicKey && !!ollamaKey && !openrouterKey && !deepseekKey);
 
   if (useOpenRouter && openrouterKey) {
     return callOpenAICompat({
@@ -144,11 +147,16 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
       apiKey: openrouterKey,
       baseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api',
       providerLabel: 'openrouter',
-      // #2357 Finding C: anthropic/claude-3.5-sonnet was retired Oct 2025.
-      // Default to the same canonical family the rest of the resolver uses
-      // (MODEL_MAP). `OPENROUTER_DEFAULT_MODEL` still wins for callers who
-      // want to pin a specific OpenRouter slug.
       defaultModel: process.env.OPENROUTER_DEFAULT_MODEL || 'anthropic/claude-sonnet-4-6',
+    });
+  }
+  if (useDeepSeek && deepseekKey) {
+    return callOpenAICompat({
+      ...input,
+      apiKey: deepseekKey,
+      baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
+      providerLabel: 'deepseek',
+      defaultModel: process.env.DEEPSEEK_DEFAULT_MODEL || 'deepseek-chat',
     });
   }
   if (useOllama && ollamaKey) {
@@ -158,7 +166,7 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
     return {
       success: false,
       error:
-        'No LLM provider configured. Set ANTHROPIC_API_KEY (Tier-3), OPENROUTER_API_KEY (#2042), or OLLAMA_API_KEY (Tier-2 — #1725).',
+        'No LLM provider configured. Set ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY, or OLLAMA_API_KEY.',
     };
   }
   const model = input.model || DEFAULT_ANTHROPIC_MODEL;
