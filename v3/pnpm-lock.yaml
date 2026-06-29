@@ -152,6 +152,9 @@ importers:
       '@metaharness/kernel':
         specifier: ~0.1.0
         version: 0.1.0
+      '@metaharness/redblue':
+        specifier: ~0.1.1
+        version: 0.1.4
       '@metaharness/router':
         specifier: ~0.3.2
         version: 0.3.2(@ruvector/tiny-dancer@0.1.22)
@@ -1755,6 +1758,14 @@ packages:
         optional: true
     dependencies:
       '@ruvector/emergent-time': 0.1.0
+    dev: false
+    optional: true
+
+  /@metaharness/redblue@0.1.4:
+    resolution: {integrity: sha512-JaAk6bs3xA7Ks5RnAcZoxI3WfzpYL+Bk262SCI07w82BDOA7C6VxwGM63F7b86lRTKUVjTEnSqf7QZ3uyElT/g==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    requiresBuild: true
     dev: false
     optional: true
 
